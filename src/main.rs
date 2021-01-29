@@ -62,7 +62,7 @@ fn use_str() {
 
 fn main() {
     let mut trie = BinaryNode2::new(None);
-    let mut cursor = &mut trie;
+    let mut cursor: &mut BinaryNode2;
 
     let pfxs = [
         Prefix::new(0b0110_0000_0110_0000_0111_0000_1101_0000_u32, 3),
