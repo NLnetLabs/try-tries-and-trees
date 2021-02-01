@@ -1,10 +1,10 @@
-use num::traits::int::PrimInt;
+use num::PrimInt;
 use std::fmt;
 use std::fmt::Debug;
 pub struct TrieNode<'a, AF, T>
 where
     T: fmt::Debug,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     pub prefix: Option<&'a Prefix<AF, T>>,
     pub left: Option<Box<TrieNode<'a, AF, T>>>,
@@ -14,7 +14,7 @@ where
 impl<'a, AF, T> TrieNode<'a, AF, T>
 where
     T: fmt::Debug,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     pub fn new(pfx: Option<&'a Prefix<AF, T>>) -> TrieNode<'a, AF, T> {
         TrieNode::<'a, AF, T> {
@@ -27,7 +27,7 @@ where
 
 impl<'a, AF> Debug for TrieNode<'a, AF, NoMeta>
 where
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("{:?}", self))
@@ -46,7 +46,7 @@ impl fmt::Debug for NoMeta {
 pub trait Meta<AF>
 where
     Self: fmt::Debug + Sized,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     fn with_meta(net: AF, len: u8, meta: Option<Self>) -> Prefix<AF, Self> {
         Prefix {
@@ -58,25 +58,31 @@ where
 }
 
 pub trait AddressFamily {
-    fn get_family() -> u8;
+    const BITMASK: Self;
+    const BITS: u8;
+    fn fmt_net(net: Self) -> String;
 }
 
 impl AddressFamily for u32 {
-    fn get_family() -> u8 {
-        4
+    const BITMASK: u32 = 0x1u32.rotate_right(1);
+    const BITS: u8 = 32;
+    fn fmt_net(net: Self) -> String {
+        std::net::Ipv4Addr::from(net).to_string()
     }
 }
 
 impl AddressFamily for u128 {
-    fn get_family() -> u8 {
-        6
+    const BITMASK: u128 = 0x1u128.rotate_right(1);
+    const BITS: u8 = 128;
+    fn fmt_net(net: Self) -> String {
+        std::net::Ipv6Addr::from(net).to_string()
     }
 }
 
 pub struct Prefix<AF, T>
 where
     T: Meta<AF>,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     pub net: AF,
     pub len: u8,
@@ -86,7 +92,7 @@ where
 impl<T, AF> Prefix<AF, T>
 where
     T: Meta<AF>,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     pub fn new(net: AF, len: u8) -> Prefix<AF, T> {
         T::with_meta(net, len, None)
@@ -99,7 +105,7 @@ where
 impl<T, AF> Meta<AF> for T
 where
     T: Debug,
-    AF: AddressFamily,
+    AF: AddressFamily + PrimInt,
 {
     fn with_meta(net: AF, len: u8, meta: Option<T>) -> Prefix<AF, T> {
         Prefix::<AF, T> { net, len, meta }
@@ -136,13 +142,14 @@ where
 pub struct Trie<'a, AF, T>(TrieNode<'a, AF, T>)
 where
     T: Debug,
-    AF: AddressFamily;
+    AF: AddressFamily + PrimInt;
 
-impl<'a, T> Trie<'a, u32, T>
+impl<'a, AF, T> Trie<'a, AF, T>
 where
     T: Debug,
+    AF: AddressFamily + PrimInt + fmt::Binary,
 {
-    pub fn new() -> Trie<'a, u32, T> {
+    pub fn new() -> Trie<'a, AF, T> {
         Trie(TrieNode {
             prefix: None,
             left: None,
@@ -150,17 +157,17 @@ where
         })
     }
 
-    pub fn insert(&mut self, pfx: &'a Prefix<u32, T>) {
+    pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
         let mut cursor = &mut self.0;
 
-        let mut first_bit: u32 = pfx.net;
-        let mut built_prefix: u32 = 0;
-        let bitmask: u32 = 0x1.rotate_right(1);
+        let mut first_bit = pfx.net;
+        let mut built_prefix: AF = num::zero();
+        let zero = num::zero();
 
         for _ in 0..pfx.len {
             // println!("{:#b} : {}", first_bit, first_bit.leading_ones());
-            match first_bit & bitmask {
-                0 => {
+            match first_bit & AF::BITMASK {
+                b if b == zero => {
                     if !cursor.left.is_some() {
                         // new node on the left
                         cursor.left = Some(Box::new(TrieNode::new(None)))
@@ -168,53 +175,54 @@ where
                     built_prefix = built_prefix << 1;
                     cursor = cursor.left.as_deref_mut().unwrap();
                 }
-                1..=u32::MAX => {
+                _ => {
                     if !cursor.right.is_some() {
                         // new node on the right
                         cursor.right = Some(Box::new(TrieNode::new(None)));
                     }
-                    built_prefix = built_prefix << 1 | 1;
+                    built_prefix = built_prefix << 1 | num::one();
                     cursor = cursor.right.as_deref_mut().unwrap();
                 }
             }
-            first_bit = first_bit << 1;
+            first_bit = first_bit << num::one();
         }
         println!("bp: {:b}", built_prefix);
 
         let len = pfx.len;
-        let net = built_prefix << (32 - pfx.len);
+        let shift: usize = (AF::BITS - pfx.len) as usize;
+        let net = built_prefix << shift;
 
         println!("{:b}", net);
         cursor.prefix = Some(&pfx);
-        println!("prefix: {:?}/{}", std::net::Ipv4Addr::from(net), len);
+        println!("prefix: {:?}/{}", AF::fmt_net(net), len);
     }
 
     pub fn match_longest_prefix(
         &self,
-        search_pfx: &Prefix<u32, NoMeta>,
-    ) -> Option<&'a Prefix<u32, T>> {
+        search_pfx: &Prefix<AF, NoMeta>,
+    ) -> Option<&'a Prefix<AF, T>> {
         let mut cursor = &self.0;
-        let mut cursor_pfx: u32 = 0;
-        let mut match_pfx: Option<&'a Prefix<u32, T>> = None;
-        let mut build_pfx = 0;
+        let mut cursor_pfx: AF = num::zero();
+        let mut match_pfx: Option<&'a Prefix<AF, T>> = None;
+        let mut build_pfx = num::zero();
         let mut match_len = 0;
+        let zero: AF = num::zero();
         let mut first_bit = search_pfx.net;
-        let bitmask = 0x1_u32.rotate_right(1);
 
         for i in 1..search_pfx.len {
-            match first_bit & bitmask {
-                0 => {
+            match first_bit & AF::BITMASK {
+                b if b == zero => {
                     if cursor.left.is_some() {
                         cursor = cursor.left.as_deref().unwrap();
-                        cursor_pfx = cursor_pfx << 1;
+                        cursor_pfx = cursor_pfx << num::one();
                     } else {
                         break;
                     }
                 }
-                1..=u32::MAX => {
+                _ => {
                     if cursor.right.is_some() {
                         cursor = cursor.right.as_deref().unwrap();
-                        cursor_pfx = cursor_pfx << 1 | 1;
+                        cursor_pfx = cursor_pfx << num::one() | num::one();
                     } else {
                         break;
                     }
@@ -225,9 +233,10 @@ where
                 match_pfx = Some(found_pfx);
                 build_pfx = cursor_pfx;
                 match_len = i;
+                let shift = (AF::BITS - i) as usize;
                 println!(
-                    "less-specific: {:?}/{}",
-                    std::net::Ipv4Addr::from(cursor_pfx << (32 - match_len)),
+                    "less-specific: {}/{}",
+                    AF::fmt_net(cursor_pfx << shift).as_str(),
                     match_len
                 );
             }
@@ -235,9 +244,10 @@ where
             first_bit = first_bit << 1;
         }
         if match_len > 0 {
+            let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
             println!(
-                "built prefix: {:?}",
-                Prefix::<u32, NoMeta>::new(build_pfx << (32 - match_len), match_len)
+                "built prefix: {}/{}",
+                build_pfx_net.as_str(), match_len
             );
         }
         match_pfx
