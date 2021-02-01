@@ -1,7 +1,7 @@
 use trie::nodes::*;
 
 fn main() {
-    type BinaryNode<'a> = BinaryNode2<'a, NoMeta>;
+    type BinaryNode<'a> = BinaryNode2<NoMeta>;
     let mut trie = BinaryNode::new(None);
     let mut cursor: &mut BinaryNode;
 

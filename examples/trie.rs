@@ -1,6 +1,6 @@
 use trie::nodes::{NoMeta, Prefix, PrefixAs, TrieNode};
-type EmptyPrefix<'a> = Prefix<'a, NoMeta>;
-type PrefixWithAs<'a> = Prefix<'a, PrefixAs>;
+type EmptyPrefix<'a> = Prefix<NoMeta>;
+type PrefixWithAs<'a> = Prefix<PrefixAs>;
 
 pub fn longest_matching_prefix<'a>(
     search_pfx: &EmptyPrefix,
@@ -65,32 +65,32 @@ fn main() {
         PrefixWithAs::new_with_meta(
             0b1111_0000_0000_0000_0000_0000_1111_1111_u32,
             32,
-            &PrefixAs(1),
+            PrefixAs(1),
         ),
         PrefixWithAs::new_with_meta(
             0b0100_0000_0110_0000_0111_0000_1101_0011_u32,
             4,
-            &PrefixAs(1),
+            PrefixAs(1),
         ),
         PrefixWithAs::new_with_meta(
             0b0100_0000_0110_0000_0111_0000_1101_0011_u32,
             8,
-            &PrefixAs(2),
+            PrefixAs(2),
         ),
         PrefixWithAs::new_with_meta(
             0b1100_0000_0000_0011_0000_0000_0010_0000_u32,
             3,
-            &PrefixAs(2),
+            PrefixAs(2),
         ),
         PrefixWithAs::new_with_meta(
             std::net::Ipv4Addr::new(12, 0, 0, 34).into(),
             8,
-            &PrefixAs(100),
+            PrefixAs(100),
         ),
         PrefixWithAs::new_with_meta(
             std::net::Ipv4Addr::new(12, 0, 0, 34).into(),
             32,
-            &PrefixAs(100),
+            PrefixAs(100),
         ),
     ];
 

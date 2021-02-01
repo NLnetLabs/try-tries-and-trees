@@ -1,12 +1,12 @@
 use crate::nodes::{Prefix, BinaryNode2, NoMeta, PrefixAs};
 use bitvec::prelude::*;
 
-type EmptyPrefix<'a> = Prefix<'a, NoMeta>;
-type PrefixWithAs<'a> = Prefix<'a, PrefixAs>;
+type EmptyPrefix = Prefix<NoMeta>;
+type PrefixWithAs = Prefix<PrefixAs>;
 
-type BinaryNode<'a> = BinaryNode2<'a, NoMeta>;
+type BinaryNode<'a> = BinaryNode2<NoMeta>;
 
-pub fn longest_matching_prefix<'a>(search_pfx: &EmptyPrefix, trie: &'a BinaryNode) -> EmptyPrefix<'a> {
+pub fn longest_matching_prefix<'a>(search_pfx: &EmptyPrefix, trie: &'a BinaryNode) -> EmptyPrefix {
     let mut cursor: &'a BinaryNode = trie;
     let mut match_pfx = bitvec![Msb0, u32;0; 32];
     let mut match_len = 0;
@@ -39,9 +39,9 @@ pub fn longest_matching_prefix<'a>(search_pfx: &EmptyPrefix, trie: &'a BinaryNod
 
 pub fn create_trie() {
     let pfxs = [
-        PrefixWithAs::new_with_meta(0b1111_0000_0000_0000_0000_0000_1111_1111_u32, 32, &PrefixAs(1)),
-        PrefixWithAs::new_with_meta(0b0100_0000_0110_0000_0111_0000_1101_0011_u32, 4, &PrefixAs(2)),
-        PrefixWithAs::new_with_meta(0b1100_0000_0000_0011_0000_0000_0010_0000_u32, 8, &PrefixAs(2)),
+        PrefixWithAs::new_with_meta(0b1111_0000_0000_0000_0000_0000_1111_1111_u32, 32, PrefixAs(1)),
+        PrefixWithAs::new_with_meta(0b0100_0000_0110_0000_0111_0000_1101_0011_u32, 4, PrefixAs(2)),
+        PrefixWithAs::new_with_meta(0b1100_0000_0000_0011_0000_0000_0010_0000_u32, 8, PrefixAs(2)),
     ];
 
     let mut trie = BinaryNode::new(None);

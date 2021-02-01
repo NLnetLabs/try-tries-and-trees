@@ -21,14 +21,18 @@ pub mod nodes {
     #[derive(Debug)]
     pub struct PrefixAs(pub u32);
 
-    #[derive(Debug)]
     pub struct NoMeta;
+    impl fmt::Debug for NoMeta {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("blaffer")
+        }
+    }
 
     pub trait Meta
     where
         Self: fmt::Debug + Sized,
     {
-        fn with_meta(net: u32, len: u8, meta: Option<&Self>) -> Prefix<Self> {
+        fn with_meta(net: u32, len: u8, meta: Option<Self>) -> Prefix<Self> {
             Prefix {
                 net: net,
                 len: len,
@@ -37,23 +41,23 @@ pub mod nodes {
         }
     }
 
-    pub struct Prefix<'a, T>
-    where
-        T: 'a + Meta + fmt::Debug,
-    {
-        pub net: u32,
-        pub len: u8,
-        meta: Option<&'a T>,
-    }
-
-    impl<'a, T> Prefix<'a, T>
+    pub struct Prefix<T>
     where
         T: Meta,
     {
-        pub fn new(net: u32, len: u8) -> Prefix<'a, T> {
+        pub net: u32,
+        pub len: u8,
+        meta: Option<T>,
+    }
+
+    impl<T> Prefix<T>
+    where
+        T: Meta,
+    {
+        pub fn new(net: u32, len: u8) -> Prefix<T> {
             T::with_meta(net, len, None)
         }
-        pub fn new_with_meta(net: u32, len: u8, meta: &'a T) -> Prefix<'a, T> {
+        pub fn new_with_meta(net: u32, len: u8, meta: T) -> Prefix<T> {
             T::with_meta(net, len, Some(meta))
         }
     }
@@ -62,18 +66,18 @@ pub mod nodes {
     where
         T: fmt::Debug,
     {
-        fn with_meta(net: u32, len: u8, meta: Option<&T>) -> Prefix<T> {
+        fn with_meta(net: u32, len: u8, meta: Option<T>) -> Prefix<T> {
             Prefix::<T> { net, len, meta }
         }
     }
 
-    impl<'a, T> fmt::Debug for Prefix<'a, T>
+    impl<T> fmt::Debug for Prefix<T>
     where
         T: fmt::Debug + Meta,
     {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_fmt(format_args!(
-                "{}/{} {:?}",
+                "{}/{} -> {:?}",
                 &std::net::Ipv4Addr::from(self.net),
                 self.len.to_string(),
                 self.meta
@@ -82,14 +86,20 @@ pub mod nodes {
     }
 
     #[derive(Debug)]
-    pub struct BinaryNode2<'a, T> where T: fmt::Debug + Meta {
-        pub prefix: Option<Prefix<'a, T>>,
-        pub left: Option<Box<BinaryNode2<'a, T>>>,
-        pub right: Option<Box<BinaryNode2<'a, T>>>,
+    pub struct BinaryNode2<T>
+    where
+        T: fmt::Debug + Meta,
+    {
+        pub prefix: Option<Prefix<T>>,
+        pub left: Option<Box<BinaryNode2<T>>>,
+        pub right: Option<Box<BinaryNode2<T>>>,
     }
 
-    impl<'a, T> BinaryNode2<'a, T> where T: fmt::Debug + Meta {
-        pub fn new(pfx: Option<(u32, u8)>) -> BinaryNode2<'a, T> {
+    impl<'a, T> BinaryNode2<T>
+    where
+        T: fmt::Debug + Meta,
+    {
+        pub fn new(pfx: Option<(u32, u8)>) -> BinaryNode2<T> {
             BinaryNode2 {
                 prefix: if let Some((net, len)) = pfx {
                     Some(Prefix::<T>::new(net, len))
@@ -119,12 +129,38 @@ pub mod nodes {
         }
     }
 
-    #[derive(Debug)]
-    pub struct TrieNodePointer<'a, T> where T: fmt::Debug {
-        pub prefix: Option<&'a Prefix<'a, T>>,
-        pub left: Option<Box<TrieNode>>,
-        pub right: Option<Box<TrieNode>>,
+    pub struct TrieNodePointer<'a, T>
+    where
+        T: fmt::Debug,
+    {
+        pub prefix: Option<&'a Prefix<T>>,
+        pub left: Option<Box<TrieNodePointer<'a, T>>>,
+        pub right: Option<Box<TrieNodePointer<'a, T>>>,
+    }
+
+    impl<'a, T> TrieNodePointer<'a, T>
+    where
+        T: fmt::Debug,
+    {
+        pub fn new(pfx: Option<&'a Prefix<T>>) -> TrieNodePointer<'a, T> {
+            TrieNodePointer::<'a, T> {
+                prefix: pfx,
+                left: None,
+                right: None,
+            }
+        }
+    }
+
+    impl<'a> fmt::Debug for TrieNodePointer<'a, NoMeta> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_fmt(format_args!(
+                "{}/{}",
+                self.prefix.unwrap().net,
+                self.prefix.unwrap().len
+            ))
+        }
     }
 }
 
 pub mod triebitvec;
+pub mod trie;
