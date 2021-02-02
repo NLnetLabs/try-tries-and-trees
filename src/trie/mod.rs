@@ -1,6 +1,7 @@
 use num::PrimInt;
 use std::fmt;
 use std::fmt::Debug;
+
 pub struct TrieNode<'a, AF, T>
 where
     T: fmt::Debug,
@@ -25,21 +26,24 @@ where
     }
 }
 
-impl<'a, AF> Debug for TrieNode<'a, AF, NoMeta>
-where
-    AF: AddressFamily + PrimInt,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{:?}", self))
-    }
-}
+// impl<'a, AF, T> Debug for TrieNode<'a, AF, T>
+// where
+//     T: Debug,
+//     AF: AddressFamily + PrimInt,
+// {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.write_fmt(format_args!("{:?}", self))
+//     }
+// }
 
 #[derive(Debug)]
 pub struct PrefixAs(pub u32);
+
 pub struct NoMeta;
+
 impl fmt::Debug for NoMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("blaffer")
+        f.write_str("")
     }
 }
 
@@ -118,7 +122,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
-            "{}/{} -> {:?}",
+            "{}/{} with {:?}",
             &std::net::Ipv4Addr::from(self.net),
             self.len.to_string(),
             self.meta
@@ -132,13 +136,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
-            "{}/{} -> {:?}",
+            "{}/{} with {:?}",
             &std::net::Ipv6Addr::from(self.net),
             self.len.to_string(),
             self.meta
         ))
     }
 }
+
 pub struct Trie<'a, AF, T>(TrieNode<'a, AF, T>)
 where
     T: Debug,
@@ -186,15 +191,15 @@ where
             }
             first_bit = first_bit << num::one();
         }
-        println!("bp: {:b}", built_prefix);
+        // println!("bp: {:b}", built_prefix);
 
         let len = pfx.len;
         let shift: usize = (AF::BITS - pfx.len) as usize;
-        let net = built_prefix << shift;
+        let net = built_prefix << if shift < AF::BITS as usize { shift } else { 0 };
 
-        println!("{:b}", net);
+        // println!("{:b}", net);
         cursor.prefix = Some(&pfx);
-        println!("prefix: {:?}/{}", AF::fmt_net(net), len);
+        println!("inserted prefix: {:?}/{}", AF::fmt_net(net), len);
     }
 
     pub fn match_longest_prefix(
@@ -209,7 +214,20 @@ where
         let zero: AF = num::zero();
         let mut first_bit = search_pfx.net;
 
-        for i in 1..search_pfx.len {
+        for i in 0..(search_pfx.len + 1) {
+
+            if let Some(found_pfx) = cursor.prefix {
+                match_pfx = Some(found_pfx);
+                build_pfx = cursor_pfx;
+                match_len = i;
+                let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
+                println!(
+                    "less-specific: {}/{}",
+                    AF::fmt_net(cursor_pfx << shift).as_str(),
+                    match_len
+                );
+            }
+            
             match first_bit & AF::BITMASK {
                 b if b == zero => {
                     if cursor.left.is_some() {
@@ -228,28 +246,14 @@ where
                     }
                 }
             }
-
-            if let Some(found_pfx) = cursor.prefix {
-                match_pfx = Some(found_pfx);
-                build_pfx = cursor_pfx;
-                match_len = i;
-                let shift = (AF::BITS - i) as usize;
-                println!(
-                    "less-specific: {}/{}",
-                    AF::fmt_net(cursor_pfx << shift).as_str(),
-                    match_len
-                );
-            }
-
             first_bit = first_bit << 1;
         }
+
         if match_len > 0 {
             let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
-            println!(
-                "built prefix: {}/{}",
-                build_pfx_net.as_str(), match_len
-            );
+            println!("built prefix: {}/{}", build_pfx_net.as_str(), match_len);
         }
+
         match_pfx
     }
 }
