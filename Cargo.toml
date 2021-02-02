@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 bitvec = "^0.20"
 num = "^0.3"
+csv = "^1.1"
