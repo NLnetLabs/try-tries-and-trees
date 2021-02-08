@@ -3,7 +3,7 @@ use std::error::Error;
 use std::ffi::OsString;
 use std::env;
 use std::process;
-use trie::trie::{NoMeta, Prefix, PrefixAs, Trie};
+use trie::common::{NoMeta, Prefix, PrefixAs, Trie};
 
 use shrust::{Shell, ShellIO};
 use std::io::prelude::*;

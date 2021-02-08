@@ -1,4 +1,4 @@
-use crate::trie::PrefixAs;
+use crate::common::PrefixAs;
 pub struct BitMap8stride (u8);
 
 pub struct TreeBitMapNode {

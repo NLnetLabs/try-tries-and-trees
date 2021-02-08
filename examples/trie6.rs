@@ -1,4 +1,4 @@
-use trie::trie::{Trie, Prefix, PrefixAs, NoMeta};
+use trie::common::{Trie, Prefix, PrefixAs, NoMeta};
 type Prefix6WithAs<'a> = Prefix<u128, PrefixAs>;
 type Prefix6NoMeta<'a> = Prefix<u128, NoMeta>;
 
