@@ -1,7 +1,7 @@
-use trie::nodes::*;
+use trie::simpletrie::{BinaryNode as BN, Prefix, NoMeta};
 
 fn main() {
-    type BinaryNode<'a> = BinaryNode2<NoMeta>;
+    type BinaryNode<'a> = BN<NoMeta>;
     let mut trie = BinaryNode::new(None);
     let mut cursor: &mut BinaryNode;
 
@@ -22,13 +22,13 @@ fn main() {
             match first_bit.leading_ones() {
                 0 => {
                     if !cursor.left.is_some() {
-                        cursor.left = Some(Box::new(BinaryNode2::new(None)))
+                        cursor.left = Some(Box::new(BinaryNode::new(None)))
                     };
                     cursor = cursor.left.as_deref_mut().unwrap();
                 }
                 1..=32 => {
                     if !cursor.right.is_some() {
-                        cursor.right = Some(Box::new(BinaryNode2::new(None)));
+                        cursor.right = Some(Box::new(BinaryNode::new(None)));
                     }
                     cursor = cursor.right.as_deref_mut().unwrap();
                     built_prefix = built_prefix + (0x01 << (31 - n));

@@ -1,10 +1,10 @@
-use crate::nodes::{Prefix, BinaryNode2, NoMeta, PrefixAs};
+use crate::simpletrie::{Prefix, BinaryNode as BN, NoMeta, PrefixAs};
 use bitvec::prelude::*;
 
 type EmptyPrefix = Prefix<NoMeta>;
 type PrefixWithAs = Prefix<PrefixAs>;
 
-type BinaryNode<'a> = BinaryNode2<NoMeta>;
+type BinaryNode<'a> = BN<NoMeta>;
 
 pub fn longest_matching_prefix<'a>(search_pfx: &EmptyPrefix, trie: &'a BinaryNode) -> EmptyPrefix {
     let mut cursor: &'a BinaryNode = trie;
@@ -75,10 +75,7 @@ pub fn create_trie() {
                 }
             }
         }
-        // let len = pfx.len as usize;
-        // if len < 32 {
-        //     bits[len..32].store(0_u32);
-        // };
+
         bits.resize(32, false);
         println!("{}", bits);
         let net: u32 = bits.load();

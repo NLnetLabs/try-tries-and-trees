@@ -26,16 +26,6 @@ where
     }
 }
 
-// impl<'a, AF, T> Debug for TrieNode<'a, AF, T>
-// where
-//     T: Debug,
-//     AF: AddressFamily + PrimInt,
-// {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.write_fmt(format_args!("{:?}", self))
-//     }
-// }
-
 #[derive(Debug)]
 pub struct PrefixAs(pub u32);
 
@@ -199,7 +189,7 @@ where
 
         // println!("{:b}", net);
         cursor.prefix = Some(&pfx);
-        println!("inserted prefix: {:?}/{}", AF::fmt_net(net), len);
+        // println!("inserted prefix: {:?}/{}", AF::fmt_net(net), len);
     }
 
     pub fn match_longest_prefix(
@@ -222,9 +212,10 @@ where
                 match_len = i;
                 let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
                 println!(
-                    "less-specific: {}/{}",
+                    "less-specific: {}/{} with {:?}",
                     AF::fmt_net(cursor_pfx << shift).as_str(),
-                    match_len
+                    match_len,
+                    found_pfx.meta
                 );
             }
             

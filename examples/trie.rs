@@ -1,4 +1,4 @@
-use trie::nodes::{NoMeta, Prefix, PrefixAs, TrieNode};
+use trie::simpletrie::{NoMeta, Prefix, PrefixAs, TrieNode};
 type EmptyPrefix<'a> = Prefix<NoMeta>;
 type PrefixWithAs<'a> = Prefix<PrefixAs>;
 
