@@ -1,6 +1,8 @@
 use num::PrimInt;
 use std::fmt;
 use std::fmt::Debug;
+use std::ops::BitOr;
+use std::cmp::Ordering;
 
 pub struct TrieNode<'a, AF, T>
 where
@@ -73,6 +75,15 @@ impl AddressFamily for u128 {
     }
 }
 
+pub struct IPv4(u32);
+
+impl BitOr for IPv4 {
+    // rhs is the "right-hand side" of the expression `a | b`
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> IPv4 {
+        Self(self.0 | rhs.0)
+    }
+}
 pub struct Prefix<AF, T>
 where
     T: Meta<AF>,
@@ -105,6 +116,26 @@ where
         Prefix::<AF, T> { net, len, meta }
     }
 }
+
+impl<AF, T> Ord for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.net.cmp(&other.net)
+    }
+}
+
+impl<AF, T> PartialEq for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+    fn eq(&self, other: &Self) -> bool {
+        self.net == other.net
+    }
+}
+
+impl<AF, T> PartialOrd for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.net.cmp(&other.net))
+    }
+}
+
+impl<AF, T> Eq for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {}
 
 impl<T> Debug for Prefix<u32, T>
 where
@@ -183,9 +214,9 @@ where
         }
         // println!("bp: {:b}", built_prefix);
 
-        let len = pfx.len;
-        let shift: usize = (AF::BITS - pfx.len) as usize;
-        let net = built_prefix << if shift < AF::BITS as usize { shift } else { 0 };
+        // let len = pfx.len;
+        // let shift: usize = (AF::BITS - pfx.len) as usize;
+        // let net = built_prefix << if shift < AF::BITS as usize { shift } else { 0 };
 
         // println!("{:b}", net);
         cursor.prefix = Some(&pfx);
@@ -205,7 +236,6 @@ where
         let mut first_bit = search_pfx.net;
 
         for i in 0..(search_pfx.len + 1) {
-
             if let Some(found_pfx) = cursor.prefix {
                 match_pfx = Some(found_pfx);
                 build_pfx = cursor_pfx;
@@ -218,7 +248,7 @@ where
                     found_pfx.meta
                 );
             }
-            
+
             match first_bit & AF::BITMASK {
                 b if b == zero => {
                     if cursor.left.is_some() {
