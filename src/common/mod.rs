@@ -1,8 +1,8 @@
 use num::PrimInt;
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::BitOr;
-use std::cmp::Ordering;
 
 pub struct TrieNode<'a, AF, T>
 where
@@ -117,25 +117,46 @@ where
     }
 }
 
-impl<AF, T> Ord for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+impl<AF, T> Ord for Prefix<AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + PrimInt,
+{
     fn cmp(&self, other: &Self) -> Ordering {
-        self.net.cmp(&other.net)
+        (self.net >> (AF::BITS - self.len) as usize)
+            .cmp(&(other.net >> ((AF::BITS - other.len) % 32) as usize))
     }
 }
 
-impl<AF, T> PartialEq for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+impl<AF, T> PartialEq for Prefix<AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + PrimInt,
+{
     fn eq(&self, other: &Self) -> bool {
-        self.net == other.net
+        self.net >> (AF::BITS - self.len) as usize == other.net >> ((AF::BITS - other.len) % 32) as usize
     }
 }
 
-impl<AF, T> PartialOrd for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {
+impl<AF, T> PartialOrd for Prefix<AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + PrimInt,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.net.cmp(&other.net))
+        Some(
+            (self.net >> (AF::BITS - self.len) as usize)
+                .cmp(&(other.net >> ((AF::BITS - other.len) % 32) as usize)),
+        )
     }
 }
 
-impl<AF, T> Eq for Prefix<AF, T> where T: Debug, AF: AddressFamily + PrimInt {}
+impl<AF, T> Eq for Prefix<AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + PrimInt,
+{
+}
 
 impl<T> Debug for Prefix<u32, T>
 where
