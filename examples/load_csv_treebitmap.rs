@@ -1,10 +1,10 @@
-use std::fs::File;
+use std::env;
 use std::error::Error;
 use std::ffi::OsString;
-use std::env;
+use std::fs::File;
 use std::process;
 use trie::common::{NoMeta, Prefix, PrefixAs};
-use trie::treebitmap::TreeBitMap;
+use trie::treebitmap::{Stride4, TreeBitMap};
 
 use shrust::{Shell, ShellIO};
 use std::io::prelude::*;
@@ -43,7 +43,7 @@ fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Er
 
 fn main() {
     let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-    let mut trie = TreeBitMap::<u32, PrefixAs>::new();
+    let mut tree_bitmap: TreeBitMap<u32, PrefixAs, Stride4> = TreeBitMap::new();
 
     if let Err(err) = load_prefixes(&mut pfxs) {
         println!("error running example: {}", err);
@@ -51,17 +51,28 @@ fn main() {
     }
     println!("finished loading {} prefixes...", pfxs.len());
     for pfx in pfxs.iter() {
-        trie.insert(&pfx);
+        tree_bitmap.insert(pfx);
     }
+
     println!("finished building tree...");
 
-    let mut shell = Shell::new(trie);
-    shell.new_command("s", "search the RIB", 1, |io, trie, s| {
+    let spfx = Prefix::new(std::net::Ipv4Addr::new(193,0,10,0).into(), 23);
+    let fpfx = tree_bitmap.match_longest_prefix(&spfx);
+    println!("search for: {:?}, found {:?}", spfx, fpfx);
+
+    let mut shell = Shell::new(tree_bitmap);
+    shell.new_command("s", "search the RIB", 1, |io, tree_bitmap, s| {
         let s_pref: Vec<&str> = s[0].split("/").collect();
         let len = s_pref[1].parse::<u8>().unwrap();
-        let s_net: Vec<u8> = s_pref[0].split(".").map(|o| -> u8 { o.parse::<u8>().unwrap()}).collect();
-        let pfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(s_net[0],s_net[1],s_net[2],s_net[3]).into(), len);
-        let s_pfx =trie.match_longest_prefix(&pfx);
+        let s_net: Vec<u8> = s_pref[0]
+            .split(".")
+            .map(|o| -> u8 { o.parse::<u8>().unwrap() })
+            .collect();
+        let pfx = Prefix::<u32, NoMeta>::new(
+            std::net::Ipv4Addr::new(s_net[0], s_net[1], s_net[2], s_net[3]).into(),
+            len,
+        );
+        let s_pfx = tree_bitmap.match_longest_prefix(&pfx);
         writeln!(io, "{:?}", s_pfx)?;
         Ok(())
     });
