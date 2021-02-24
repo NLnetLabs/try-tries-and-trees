@@ -7,19 +7,45 @@ use std::fmt::{Binary, Debug};
 
 // type Stride3 = u16;
 pub type Stride4 = u32;
-// type Stride5 = u64;
+pub type Stride5 = u64;
 // type Stride6 = u128;
 
 pub trait Stride {
     type PtrSize;
-    type PfxSize;
     const BITS: u8;
 
     fn get_bit_pos(nibble: u32, len: u8) -> Self;
-    fn get_pfx_index(nibble: u32, len: u8) -> usize;
-    fn get_ptr_index(nibble: u32) -> usize;
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize;
+    fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize;
     fn into_stride_size(bitmap: Self::PtrSize) -> Self;
     fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize;
+}
+
+impl Stride for Stride5 {
+    type PtrSize = u32;
+    const BITS: u8 = 64;
+    fn get_bit_pos(nibble: u32, len: u8) -> u64 {
+        1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
+    }
+
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize))
+            .count_ones() as usize
+            - 1
+    }
+    fn get_ptr_index(bitmap: u32, nibble: u32) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
+            as usize
+            - 1
+    }
+
+    fn into_stride_size(bitmap: u32) -> u64 {
+        (bitmap as u64) << 1
+    }
+
+    fn into_ptrbitarr_size(bitmap: u64) -> u32 {
+        bitmap as u32
+    }
 }
 
 impl Stride for Stride4 {
