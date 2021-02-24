@@ -1,9 +1,9 @@
-use trie::common::{NoMeta, Prefix, PrefixAs};
-use trie::treebitmap::TreeBitMap;
+use trie::common::{Prefix, PrefixAs, NoMeta};
+use trie::treebitmap::{TreeBitMap, Stride4};
 type Prefix4<'a> = Prefix<u32, NoMeta>;
 
 fn main() {
-    let mut tree_bitmap = TreeBitMap::new();
+    let mut tree_bitmap: TreeBitMap<u32, PrefixAs, Stride4> = TreeBitMap::new();
     let pfxs = vec![
         Prefix::<u32, PrefixAs>::new(0b0000_0000_0000_0000_0000_0000_0000_0000_u32, 0),
         Prefix::<u32, PrefixAs>::new(0b1111_1111_1111_1111_1111_1111_1111_1111_u32, 32),
@@ -18,16 +18,19 @@ fn main() {
         Prefix::new(0b1000_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1001_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1010_0000_0000_0000_0000_0000_0000_0000_u32, 4),
+        Prefix::new(0b1011_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1100_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1101_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1110_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1111_0000_0000_0000_0000_0000_0000_0000_u32, 4),
         Prefix::new(0b1111_0000_0000_0000_0000_0000_0000_0000_u32, 9),
         Prefix::new(0b1111_0000_1000_0000_0000_0000_0000_0000_u32, 9),
+        Prefix::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 12),
         Prefix::<u32, PrefixAs>::new(0b1111_0000_0000_0000_0000_0000_0000_0000_u32, 9),
-        Prefix::<u32, PrefixAs>::new(0b1111_0000_1000_0000_0000_0000_0000_0000_u32, 9),
-        Prefix::<u32, PrefixAs>::new(0b0111_0111_0000_0000_0000_0000_0000_0000_u32, 10),
-        Prefix::<u32, PrefixAs>::new(0b0111_0111_0000_0000_0000_0000_0000_0000_u32, 11),
+        Prefix::<u32, PrefixAs>::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 9),
+        Prefix::<u32, PrefixAs>::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 10),
+        Prefix::<u32, PrefixAs>::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 11),
+        Prefix::<u32, PrefixAs>::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 12),
         Prefix::<u32, PrefixAs>::new(0b0111_0111_0000_0000_0000_0000_0000_0000_u32, 12),
         Prefix::<u32, PrefixAs>::new(0b0111_0111_0000_0000_0000_0000_0000_0000_u32, 13),
         Prefix::<u32, PrefixAs>::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 13),
@@ -41,8 +44,8 @@ fn main() {
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 10, 0).into(), 23),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 9, 0).into(), 24),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 0, 0).into(), 23),
-        Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 0, 0).into(), 16),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23),
+        Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(209, 0, 0, 0).into(), 16),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 9, 0).into(), 24),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
         Prefix::<u32, PrefixAs>::new(0b0011_0000_0000_0000_0000_0000_0000_0000_u32, 4),
@@ -89,6 +92,7 @@ fn main() {
         Prefix::new(std::net::Ipv4Addr::new(130, 55, 240, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(193, 0, 3, 0).into(), 23),
         Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23),
+        Prefix::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 14),
         Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(100, 0, 12, 0).into(), 24),
     ] {
