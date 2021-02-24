@@ -7,7 +7,7 @@ use std::ops::BitOr;
 pub struct TrieNode<'a, AF, T>
 where
     T: fmt::Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     pub prefix: Option<&'a Prefix<AF, T>>,
     pub left: Option<Box<TrieNode<'a, AF, T>>>,
@@ -17,7 +17,7 @@ where
 impl<'a, AF, T> TrieNode<'a, AF, T>
 where
     T: fmt::Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     pub fn new(pfx: Option<&'a Prefix<AF, T>>) -> TrieNode<'a, AF, T> {
         TrieNode::<'a, AF, T> {
@@ -42,7 +42,7 @@ impl fmt::Debug for NoMeta {
 pub trait Meta<AF>
 where
     Self: fmt::Debug + Sized,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     fn with_meta(net: AF, len: u8, meta: Option<Self>) -> Prefix<AF, Self> {
         Prefix {
@@ -57,13 +57,21 @@ pub trait AddressFamily {
     const BITMASK: Self;
     const BITS: u8;
     fn fmt_net(net: Self) -> String;
+    // returns the specified nibble from `start_bit` to (and
+    // including) `start_bit + len` and shifted to the right.
+    fn get_nibble(net: Self, start_bit: u8, len: u8) -> u32;
 }
 
 impl AddressFamily for u32 {
     const BITMASK: u32 = 0x1u32.rotate_right(1);
     const BITS: u8 = 32;
+
     fn fmt_net(net: Self) -> String {
         std::net::Ipv4Addr::from(net).to_string()
+    }
+
+    fn get_nibble(net: Self, start_bit: u8, len: u8) -> u32 {
+        (net << start_bit) >> ((32 - len) % 32)
     }
 }
 
@@ -72,6 +80,10 @@ impl AddressFamily for u128 {
     const BITS: u8 = 128;
     fn fmt_net(net: Self) -> String {
         std::net::Ipv6Addr::from(net).to_string()
+    }
+
+    fn get_nibble(net: Self, start_bit: u8, len: u8) -> u32 {
+        ((net << start_bit) >> ((128 - len) % 128)) as u32
     }
 }
 
@@ -84,10 +96,12 @@ impl BitOr for IPv4 {
         Self(self.0 | rhs.0)
     }
 }
+
+// #[derive(Debug)]
 pub struct Prefix<AF, T>
 where
     T: Meta<AF>,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     pub net: AF,
     pub len: u8,
@@ -97,7 +111,7 @@ where
 impl<T, AF> Prefix<AF, T>
 where
     T: Meta<AF>,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     pub fn new(net: AF, len: u8) -> Prefix<AF, T> {
         T::with_meta(net, len, None)
@@ -110,7 +124,7 @@ where
 impl<T, AF> Meta<AF> for T
 where
     T: Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     fn with_meta(net: AF, len: u8, meta: Option<T>) -> Prefix<AF, T> {
         Prefix::<AF, T> { net, len, meta }
@@ -120,7 +134,7 @@ where
 impl<AF, T> Ord for Prefix<AF, T>
 where
     T: Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         (self.net >> (AF::BITS - self.len) as usize)
@@ -131,17 +145,18 @@ where
 impl<AF, T> PartialEq for Prefix<AF, T>
 where
     T: Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.net >> (AF::BITS - self.len) as usize == other.net >> ((AF::BITS - other.len) % 32) as usize
+        self.net >> (AF::BITS - self.len) as usize
+            == other.net >> ((AF::BITS - other.len) % 32) as usize
     }
 }
 
 impl<AF, T> PartialOrd for Prefix<AF, T>
 where
     T: Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(
@@ -154,33 +169,20 @@ where
 impl<AF, T> Eq for Prefix<AF, T>
 where
     T: Debug,
-    AF: AddressFamily + PrimInt,
+    AF: AddressFamily + PrimInt + Debug,
 {
 }
 
-impl<T> Debug for Prefix<u32, T>
+impl<T, AF> Debug for Prefix<AF, T>
 where
-    T: Debug + Meta<u32>,
+    AF: AddressFamily + PrimInt + Debug,
+    T: Debug + Meta<AF>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
             "{}/{} with {:?}",
-            &std::net::Ipv4Addr::from(self.net),
-            self.len.to_string(),
-            self.meta
-        ))
-    }
-}
-
-impl<T> Debug for Prefix<u128, T>
-where
-    T: Debug + Meta<u128>,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "{}/{} with {:?}",
-            &std::net::Ipv6Addr::from(self.net),
-            self.len.to_string(),
+            AddressFamily::fmt_net(self.net),
+            self.len,
             self.meta
         ))
     }
@@ -189,12 +191,12 @@ where
 pub struct Trie<'a, AF, T>(TrieNode<'a, AF, T>)
 where
     T: Debug,
-    AF: AddressFamily + PrimInt;
+    AF: AddressFamily + PrimInt + Debug;
 
 impl<'a, AF, T> Trie<'a, AF, T>
 where
     T: Debug,
-    AF: AddressFamily + PrimInt + fmt::Binary,
+    AF: AddressFamily + PrimInt + Debug + fmt::Binary,
 {
     pub fn new() -> Trie<'a, AF, T> {
         Trie(TrieNode {
