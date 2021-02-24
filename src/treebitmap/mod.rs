@@ -24,30 +24,83 @@ pub trait Stride {
 
 impl Stride for Stride4 {
     type PtrSize = u16;
-    type PfxSize = u32;
     const BITS: u8 = 32;
 
     fn get_bit_pos(nibble: u32, len: u8) -> u32 {
+        // Get the bit position of the start of the given nibble.
+        // The nibble is defined as a `len` number of bits set from the right.
+
+        // `<Self as Stride>::BITS`
+        // is the whole length of the bitmap, since we are shifting to the left,
+        // we have to start at the end of the bitmap.
+        // `((1 << len) - 1)`
+        // is the offset for this nibble length in the bitmap.
+        // `nibble`
+        // shifts to the right position withing the bit range for this nibble
+        // length, this follows from the fact that the `nibble` value represents
+        // *both* the bitmap part, we're considering here *and* the position
+        // relative to the nibble length offset in the bitmap.
+
         1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
     }
 
-    fn get_pfx_index(nibble: u32, len: u8) -> usize {
-        // (1_u32 << len) - 1 is the offset for this nibble length (len).
-        (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
+        // Clear the bitmap to the right of the pointer and count the number of ones.
+        // This numbder represents the index to the corresponding prefix in the pfx_vec.
+
+        // Clearing is performed by shifting to the right until we have the nibble
+        // all the way at the right.
+
+        // `(<Self as Stride>::BITS >> 1)`
+        // The end of the bitmap (this bitmap is half the size of the pfx bitmap)
+
+        // `nibble`
+        // The bit position relative to the offset for the nibble length, this index
+        // is only used at the last (relevant) stride, so the offset is always 0.
+
+        (bitmap >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize))
+            .count_ones() as usize
+            - 1
     }
 
-    fn get_ptr_index(nibble: u32) -> usize {
-        ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize
+    fn get_ptr_index(bitmap: u16, nibble: u32) -> usize {
+        // Clear the bitmap to the right of the pointer and count the number of ones.
+        // This number represents the index to the corresponding child node in the ptr_vec.
+
+        // Clearing is performed by shifting to the right until we have the nibble
+        // all the way at the right.
+
+        // For ptrbitarr the only index we want is the one for a full-length nibble
+        // (stride length) at the last stride, so we don't need the length of the nibble
+
+        // `(<Self as Stride>::BITS >> 1)`
+        // The end of the bitmap (this bitmap is half the size of the pfx bitmap),
+        // ::BITS is the size of the pfx bitmap.
+
+        // `nibble`
+        // The bit position relative to the offset for the nibble length, this index
+        // is only used at the last (relevant) stride, so the offset is always 0.
+
+        (bitmap >> ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
+            as usize
+            - 1
     }
 
     fn into_stride_size(bitmap: u16) -> u32 {
-        bitmap as u32
+        // Convert a ptrbitarr into a pfxbitarr sized bitmap,
+        // so we can do bitwise operations with a pfxbitarr sized
+        // bitmap on them.
+        // Since the last bit in the pfxbitarr isn't used, but the
+        // full ptrbitarr *is* used, the prtbitarr should be shifted
+        // one bit to the left.
+        (bitmap as u32) << 1
     }
 
     fn into_ptrbitarr_size(bitmap: u32) -> u16 {
         bitmap as u16
     }
 }
+
 pub struct TreeBitMapNode<'a, AF, T, S>
 where
     T: Debug,
@@ -161,10 +214,10 @@ where
     // ptr bits never happen in the first half of the bitmap for the stride-size. Consequently the ptrbitarr can be an integer type
     // half the size of the pfxbitarr.
     //
-    // ptr bit pos (u16)                                                        0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15    x
-    // pfx bit pos (u32)   0 1 2  3  4  5  6   7   8   9  10  11  12  13  14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
+    // ptr bit arr (u16)                                                        0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15    x
+    // pfx bit arr (u32)   0 1 2  3  4  5  6   7   8   9  10  11  12  13  14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
     // nibble              * 0 1 00 01 10 11 000 001 010 011 100 101 110 111 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111    x
-    // nibble length       0 1    2            3                                4
+    // nibble len offset   0 1    2            3                                4
     //
     // stride 3: 1 + 2 + 4 + 8                              =  15 bits. 2^4 - 1 (1 << 4) - 1. ptrbitarr starts at pos  7 (1 << 3) - 1
     // stride 4: 1 + 2 + 4 + 8 + 16                         =  31 bits. 2^5 - 1 (1 << 5) - 1. ptrbitarr starts at pos 15 (1 << 4) - 1
@@ -207,14 +260,7 @@ where
                 *stride
             };
 
-            // Shift left and right to set the bits to zero that are not
-            // in the nibble we're handling here.
-            // let nibble = pfx.net << (stride_end - stride) as usize
-            //     >> (((AF::BITS - nibble_len) % AF::BITS) as usize);
-
             let nibble = AddressFamily::get_nibble(pfx.net, stride_end - stride, nibble_len);
-
-            // Move the bit in the right position.
             let bit_pos = S::get_bit_pos(nibble, nibble_len);
 
             // println!("n {:b} nl {}", nibble, nibble_len);
@@ -223,13 +269,14 @@ where
             if pfx.len > stride_end {
                 // We are not at the last stride
                 // Check it the ptr bit is already set in this position
-                if (S::from(current_node.ptrbitarr).unwrap() << 1) & bit_pos == S::zero() {
+                if S::into_stride_size(current_node.ptrbitarr) & bit_pos == S::zero() {
                     // Nope, set it and create a child node
                     // Note that bitwise operators align bits of unsigend types with different
                     // sizes to the right, so we don't have to do anything to pad the smaller sized
-                    // type.
+                    // type. We do have to shift one bit to the left, to accomodate the unused pfxbitarr's
+                    // last bit.
                     current_node.ptrbitarr = S::into_ptrbitarr_size(
-                        (bit_pos | ((S::from(current_node.ptrbitarr).unwrap()) << 1)) >> 1,
+                        (bit_pos | S::into_stride_size(current_node.ptrbitarr)) >> 1,
                     );
 
                     // println!(
@@ -326,15 +373,13 @@ where
             // So for matching a nibble 1010, we have to search for 1, 10, 101 and 1010 on
             // resp. position 1, 5, 12 and 25:
             //                       ↓          ↓                         ↓                                                              ↓
-            // pfx bit pos (u32)   0 1 2  3  4  5  6   7   8   9  10  11  12  13  14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
+            // pfx bit arr (u32)   0 1 2  3  4  5  6   7   8   9  10  11  12  13  14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
             // nibble              * 0 1 00 01 10 11 000 001 010 011 100 101 110 111 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111    x
-            // nibble length       0 1    2            3                                4
+            // nibble len offset   0 1    2            3                                4
 
             for n_l in 1..(nibble_len + 1) {
                 // Move the bit in the right position.
 
-                // Shift left and right to set the bits to zero that are not
-                // in the nibble we're handling here.
                 // nibble = (search_pfx.net << (stride_end - stride) as usize)
                 //     >> (((Self::BITS - n_l) % AF::BITS) as usize);
                 nibble = AddressFamily::get_nibble(search_pfx.net, stride_end - stride, n_l);
@@ -381,7 +426,8 @@ where
                 // );
             }
 
-            // Check if this the last stride, if so return what we found up until now
+            // Check if this the last stride, or if they're no more children to go to,
+            // if so return what we found up until now.
             if search_pfx.len < (stride_end - stride)
                 || (((S::into_stride_size(current_node.ptrbitarr)) << 1) & bit_pos) == S::zero()
             {
