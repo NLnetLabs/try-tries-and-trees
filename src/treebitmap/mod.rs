@@ -348,13 +348,10 @@ where
             //     "{}",
             //     (current_node.ptrbitarr >> ((S::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
             // );
-            let next_index = (current_node.ptrbitarr
-                >> ((S::BITS >> 1) - nibble as u8 - 1) as usize)
-                .count_ones() as u32;
-
             // println!("{}", next_index);
             // println!("{:?}", current_node.ptr_vec);
-            current_node = &mut current_node.ptr_vec[next_index as usize - 1];
+            current_node =
+                &mut current_node.ptr_vec[S::get_ptr_index(current_node.ptrbitarr, nibble)];
         }
     }
 
@@ -432,10 +429,7 @@ where
                 // Check it there's an prefix matching in this bitmap for this nibble
                 if current_node.pfxbitarr & bit_pos > S::zero() {
                     found_pfx = Some(
-                        current_node.pfx_vec[(current_node.pfxbitarr >> S::get_pfx_index(nibble, n_l))
-                            // >> (Self::BITS - offset as u8 - nibble as u8 - 1))
-                            .count_ones() as usize
-                            - 1],
+                        current_node.pfx_vec[S::get_pfx_index(current_node.pfxbitarr, nibble, n_l)],
                     );
                     println!("found: {:?}", found_pfx.unwrap());
                 }
@@ -455,18 +449,13 @@ where
             // Check if this the last stride, or if they're no more children to go to,
             // if so return what we found up until now.
             if search_pfx.len < (stride_end - stride)
-                || (((S::into_stride_size(current_node.ptrbitarr)) << 1) & bit_pos) == S::zero()
+                || (S::into_stride_size(current_node.ptrbitarr) & bit_pos) == S::zero()
             {
                 return found_pfx;
             }
 
-            // shift all the bits away that do not concern this ptr, so we can count
-            // the ones left to the bit cursor.
-            let next_index = (current_node.ptrbitarr
-                >> ((S::BITS >> 1) - nibble as u8 - 1) as usize)
-                .count_ones();
 
-            current_node = &current_node.ptr_vec[next_index as usize - 1];
+            current_node = &current_node.ptr_vec[S::get_ptr_index(current_node.ptrbitarr, nibble)];
         }
 
         println!("=");
