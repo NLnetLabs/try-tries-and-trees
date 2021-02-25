@@ -95,6 +95,7 @@ fn main() {
         Prefix::new(0b0111_0111_1000_0000_0000_0000_0000_0000_u32, 14),
         Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(100, 0, 12, 0).into(), 24),
+        Prefix::new(std::net::Ipv4Addr::new(255, 255, 255, 255).into(), 32),
     ] {
         println!("search for: {:?}", spfx);
         let s_spfx = tree_bitmap.match_longest_prefix(&spfx);
