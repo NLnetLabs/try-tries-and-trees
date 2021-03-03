@@ -17,4 +17,11 @@ The `./data/uniq_pfx_asn.csv` is derived from a RisWHOIS file and thus approxima
 On the REPL the only thing you can do is:
 `s <PREFIX/LEN>`
 
+## Treebitmap
+
+You can change the strides in by changing this line in `src/treebitmap/mod.rs`:
+`const STRIDES: [u8; 6] = [6, 6, 6, 6, 5, 3];`
+
+Possible stride sizes are 3,4,5,6.
+
 Enjoy.
