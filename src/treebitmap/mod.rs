@@ -824,5 +824,3 @@ where
         found_pfx
     }
 }
-
-pub mod allocator;
