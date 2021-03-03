@@ -195,6 +195,7 @@ where
     T: Debug,
     AF: AddressFamily + PrimInt + Debug,
 {
+    Stride3(TreeBitMapNode<'a, AF, T, Stride3>),
     Stride4(TreeBitMapNode<'a, AF, T, Stride4>),
     Stride5(TreeBitMapNode<'a, AF, T, Stride5>),
     Stride6(TreeBitMapNode<'a, AF, T, Stride6>),
@@ -238,6 +239,13 @@ where
 {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
+            SizedStrideNode::Stride3(nn) => {
+                if let SizedStrideNode::Stride3(mm) = other {
+                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
+                } else {
+                    0.cmp(&1)
+                }
+            }
             SizedStrideNode::Stride4(nn) => {
                 if let SizedStrideNode::Stride4(mm) = other {
                     nn.ptrbitarr.cmp(&mm.ptrbitarr)
@@ -270,6 +278,13 @@ where
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self {
+            SizedStrideNode::Stride3(nn) => {
+                if let SizedStrideNode::Stride3(mm) = other {
+                    Some(nn.bit_id.cmp(&mm.bit_id))
+                } else {
+                    Some(0.cmp(&1))
+                }
+            }
             SizedStrideNode::Stride4(nn) => {
                 if let SizedStrideNode::Stride4(mm) = other {
                     Some(nn.bit_id.cmp(&mm.bit_id))
@@ -302,6 +317,13 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         match self {
+            SizedStrideNode::Stride3(n) => {
+                if let SizedStrideNode::Stride3(m) = other {
+                    n.bit_id == m.bit_id
+                } else {
+                    true
+                }
+            }
             SizedStrideNode::Stride4(n) => {
                 if let SizedStrideNode::Stride4(m) = other {
                     n.bit_id == m.bit_id
@@ -393,6 +415,13 @@ where
                 // );
                 // println!("bit_id: {}", bit_pos.leading_zeros());
                 let new_node = match next_stride.unwrap() {
+                    3_u8 => SizedStrideNode::Stride3(TreeBitMapNode {
+                        bit_id: bit_pos.leading_zeros() as u8,
+                        ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
+                        pfxbitarr: Stride3::zero(),
+                        pfx_vec: vec![],
+                        ptr_vec: vec![],
+                    }),
                     4_u8 => SizedStrideNode::Stride4(TreeBitMapNode {
                         bit_id: bit_pos.leading_zeros() as u8,
                         ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
@@ -532,11 +561,18 @@ where
     T: Debug,
     AF: AddressFamily + PrimInt + Debug,
 {
-    const STRIDES: [u8; 8] = [4; 8];
+    const STRIDES: [u8; 6] = [6, 6, 6, 6, 5, 3];
     pub fn new() -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
         assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
         let node = match Self::STRIDES[0] {
+            3 => SizedStrideNode::Stride3(TreeBitMapNode {
+                bit_id: 0,
+                ptrbitarr: 0,
+                pfxbitarr: 0,
+                ptr_vec: vec![],
+                pfx_vec: vec![],
+            }),
             4 => SizedStrideNode::Stride4(TreeBitMapNode {
                 bit_id: 0,
                 ptrbitarr: 0,
@@ -619,6 +655,18 @@ where
                 // pfx.len
                 // stride_end
                 // nibble,nibble_len
+                SizedStrideNode::Stride3(current_node) => match current_node.traverse(
+                    nibble,
+                    nibble_len,
+                    pfx,
+                    strides.peek(),
+                    pfx.len <= stride_end,
+                ) {
+                    Some(n) => n,
+                    None => {
+                        return;
+                    }
+                },
                 SizedStrideNode::Stride4(current_node) => match current_node.traverse(
                     nibble,
                     nibble_len,
@@ -705,6 +753,22 @@ where
             // nibble len offset   0 1    2            3                                4
             match node {
                 // nibble, nibble_len, pfx,
+                SizedStrideNode::Stride3(current_node) => {
+                    match current_node.search(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                        &mut found_pfx,
+                    ) {
+                        Some(n) => {
+                            node = n;
+                        }
+                        None => {
+                            return found_pfx;
+                        }
+                    }
+                }
                 SizedStrideNode::Stride4(current_node) => {
                     match current_node.search(
                         search_pfx,
