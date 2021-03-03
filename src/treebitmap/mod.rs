@@ -22,6 +22,35 @@ pub trait Stride {
     fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize;
 }
 
+impl Stride for Stride3 {
+    type PtrSize = u8;
+    const BITS: u8 = 16;
+    const STRIDE_LEN: u8 = 3;
+
+    fn get_bit_pos(nibble: u32, len: u8) -> Self {
+        1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
+    }
+
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize))
+            .count_ones() as usize
+            - 1
+    }
+    fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
+            as usize
+            - 1
+    }
+
+    fn into_stride_size(bitmap: u8) -> u16 {
+        (bitmap as u16) << 1
+    }
+
+    fn into_ptrbitarr_size(bitmap: Self) -> u8 {
+        bitmap as u8
+    }
+}
+
 impl Stride for Stride5 {
     type PtrSize = u32;
     const BITS: u8 = 64;
@@ -493,58 +522,45 @@ where
     }
 }
 
-pub struct TreeBitMap<'a, AF, T, S>(TreeBitMapNode<'a, AF, T, S>)
+pub struct TreeBitMap<'a, AF, T>(SizedStrideNode<'a, AF, T>)
 where
     T: Debug,
-    AF: AddressFamily + PrimInt + Debug,
-    S: Stride + PrimInt + Debug + Binary,
-    <S as Stride>::PtrSize: PrimInt + Debug + Binary;
+    AF: AddressFamily + PrimInt + Debug;
 
-impl<'a, AF, T, S> TreeBitMap<'a, AF, T, S>
+impl<'a, AF, T> TreeBitMap<'a, AF, T>
 where
     T: Debug,
     AF: AddressFamily + PrimInt + Debug,
-    S: Stride + PrimInt + Debug + Binary,
-    <S as Stride>::PtrSize: PrimInt + Debug + Binary,
 {
     const STRIDES: [u8; 8] = [4; 8];
-    pub fn new() -> TreeBitMap<'a, AF, T, S>
-    where
-        S: Debug + Stride + PrimInt + Binary,
-        <S as Stride>::PtrSize: PrimInt + Debug + Binary,
-    {
+    pub fn new() -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
         assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
         let node = match Self::STRIDES[0] {
             4 => SizedStrideNode::Stride4(TreeBitMapNode {
                 bit_id: 0,
-                ptrbitarr: 0_u16,
-                pfxbitarr: 0_u32,
+                ptrbitarr: 0,
+                pfxbitarr: 0,
                 ptr_vec: vec![],
                 pfx_vec: vec![],
             }),
             5 => SizedStrideNode::Stride5(TreeBitMapNode {
                 bit_id: 0,
-                ptrbitarr: 0_u32,
-                pfxbitarr: 0_u64,
+                ptrbitarr: 0,
+                pfxbitarr: 0,
                 ptr_vec: vec![],
                 pfx_vec: vec![],
             }),
             _ => SizedStrideNode::Stride6(TreeBitMapNode {
                 bit_id: 0,
-                ptrbitarr: 0_u64,
-                pfxbitarr: 0_u128,
+                ptrbitarr: 0,
+                pfxbitarr: 0,
                 ptr_vec: vec![],
                 pfx_vec: vec![],
             }),
         };
-        TreeBitMap(TreeBitMapNode {
-            bit_id: 0,
-            ptrbitarr: S::PtrSize::zero(),
-            pfxbitarr: S::zero(),
-            ptr_vec: vec![node],
-            pfx_vec: vec![],
-        })
+
+        TreeBitMap(node)
     }
 
     // Partition for stride 4
@@ -584,7 +600,7 @@ where
         // println!("             0   4   8   12  16  20  24  28  32");
         // println!("             |---|---|---|---|---|---|---|---|");
         let mut stride_end: u8 = 0;
-        let mut node = self.0.ptr_vec.first_mut().unwrap();
+        let mut node = &mut self.0;
         let mut strides = Self::STRIDES.iter().peekable();
         while let Some(stride) = strides.next() {
             stride_end += stride;
@@ -638,7 +654,7 @@ where
                     None => {
                         return;
                     }
-                },
+                }
             }
         }
     }
@@ -650,7 +666,7 @@ where
     ) -> Vec<&'a Prefix<AF, T>> {
         let mut stride_end = 0;
         let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
-        let mut node = self.0.ptr_vec.first().unwrap();
+        let mut node = &self.0;
         // println!("");
         // println!("{:?}", search_pfx);
         // println!("             0   4   8   12  16  20  24  28  32");

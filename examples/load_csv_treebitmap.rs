@@ -43,7 +43,7 @@ fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Er
 
 fn main() {
     let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-    let mut tree_bitmap: TreeBitMap<u32, PrefixAs, Stride4> = TreeBitMap::new();
+    let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new();
 
     if let Err(err) = load_prefixes(&mut pfxs) {
         println!("error running example: {}", err);
