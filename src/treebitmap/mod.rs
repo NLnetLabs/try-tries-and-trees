@@ -331,20 +331,22 @@ where
         nibble_len: u8,
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
+        is_last_stride: bool,
     ) -> Option<&mut SizedStrideNode<'a, AF, T>> {
-        // pfx.len
-        // stride_end
-        // nibble,nibble_len
-
+     
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
 
         // println!("n {:b} nl {}", nibble, nibble_len);
 
-        // Check that we're at the last stride (pfx.len > stride_end),
-        // Note that next_stride may have a value, but we don't want to
+        // Check that we're not at the last stride (pfx.len <= stride_end),
+        // Note that next_stride may have a value, but we still don't want to
         // continue, because we've exceeded the length of the prefix to
         // be inserted.
-        if nibble_len == S::STRIDE_LEN && next_stride.is_some() {
+        // Also note that a nibble_len < S::BITS (a smaller than full nibble)
+        // does indeed indicate the last stride has been reached, but the
+        // reverse is *not* true, i.e. a full nibble can also be the last
+        // stride. Hence the `is_last_stride` argument
+        if !is_last_stride {
             // We are not at the last stride
             // Check it the ptr bit is already set in this position
             if S::into_stride_size(self.ptrbitarr) & bit_pos == S::zero() {
@@ -606,6 +608,7 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
+                    pfx.len <= stride_end,
                 ) {
                     Some(n) => n,
                     None => {
@@ -617,6 +620,7 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
+                    pfx.len <= stride_end,
                 ) {
                     Some(n) => n,
                     None => {
@@ -628,6 +632,7 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
+                    pfx.len <= stride_end,
                 ) {
                     Some(n) => n,
                     None => {
