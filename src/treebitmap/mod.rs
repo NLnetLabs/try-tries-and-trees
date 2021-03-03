@@ -13,6 +13,7 @@ pub type Stride6 = u128;
 pub trait Stride {
     type PtrSize;
     const BITS: u8;
+    const STRIDE_LEN: u8;
 
     fn get_bit_pos(nibble: u32, len: u8) -> Self;
     fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize;
@@ -24,6 +25,8 @@ pub trait Stride {
 impl Stride for Stride5 {
     type PtrSize = u32;
     const BITS: u8 = 64;
+    const STRIDE_LEN: u8 = 5;
+
     fn get_bit_pos(nibble: u32, len: u8) -> u64 {
         1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
     }
@@ -51,6 +54,8 @@ impl Stride for Stride5 {
 impl Stride for Stride6 {
     type PtrSize = u64;
     const BITS: u8 = 128;
+    const STRIDE_LEN: u8 = 6;
+
     fn get_bit_pos(nibble: u32, len: u8) -> u128 {
         1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
     }
@@ -78,6 +83,7 @@ impl Stride for Stride6 {
 impl Stride for Stride4 {
     type PtrSize = u16;
     const BITS: u8 = 32;
+    const STRIDE_LEN: u8 = 4;
 
     fn get_bit_pos(nibble: u32, len: u8) -> u32 {
         // Get the bit position of the start of the given nibble.
@@ -325,7 +331,6 @@ where
         nibble_len: u8,
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
-        last_stride: bool,
     ) -> Option<&mut SizedStrideNode<'a, AF, T>> {
         // pfx.len
         // stride_end
@@ -335,8 +340,11 @@ where
 
         // println!("n {:b} nl {}", nibble, nibble_len);
 
-        // Check if we're at the last stride (pfx.len > stride_end)
-        if last_stride {
+        // Check that we're at the last stride (pfx.len > stride_end),
+        // Note that next_stride may have a value, but we don't want to
+        // continue, because we've exceeded the length of the prefix to
+        // be inserted.
+        if nibble_len == S::STRIDE_LEN && next_stride.is_some() {
             // We are not at the last stride
             // Check it the ptr bit is already set in this position
             if S::into_stride_size(self.ptrbitarr) & bit_pos == S::zero() {
@@ -598,7 +606,6 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
-                    pfx.len > stride_end,
                 ) {
                     Some(n) => n,
                     None => {
@@ -610,7 +617,6 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
-                    pfx.len > stride_end,
                 ) {
                     Some(n) => n,
                     None => {
@@ -622,7 +628,6 @@ where
                     nibble_len,
                     pfx,
                     strides.peek(),
-                    pfx.len > stride_end,
                 ) {
                     Some(n) => n,
                     None => {
