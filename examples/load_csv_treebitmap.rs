@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::process;
 use trie::common::{NoMeta, Prefix, PrefixAs};
-use trie::treebitmap::{Stride4, TreeBitMap};
+use trie::treebitmap::TreeBitMap;
 
 use shrust::{Shell, ShellIO};
 use std::io::prelude::*;
