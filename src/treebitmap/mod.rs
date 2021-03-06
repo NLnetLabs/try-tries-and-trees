@@ -15,9 +15,59 @@ pub trait Stride {
     const BITS: u8;
     const STRIDE_LEN: u8;
 
+    // Get the bit position of the start of the given nibble.
+    // The nibble is defined as a `len` number of bits set from the right.
+
+    // `<Self as Stride>::BITS`
+    // is the whole length of the bitmap, since we are shifting to the left,
+    // we have to start at the end of the bitmap.
+    // `((1 << len) - 1)`
+    // is the offset for this nibble length in the bitmap.
+    // `nibble`
+    // shifts to the right position withing the bit range for this nibble
+    // length, this follows from the fact that the `nibble` value represents
+    // *both* the bitmap part, we're considering here *and* the position
+    // relative to the nibble length offset in the bitmap.
     fn get_bit_pos(nibble: u32, len: u8) -> Self;
+
+    // Clear the bitmap to the right of the pointer and count the number of ones.
+    // This numbder represents the index to the corresponding prefix in the pfx_vec.
+
+    // Clearing is performed by shifting to the right until we have the nibble
+    // all the way at the right.
+
+    // `(<Self as Stride>::BITS >> 1)`
+    // The end of the bitmap (this bitmap is half the size of the pfx bitmap)
+
+    // `nibble`
+    // The bit position relative to the offset for the nibble length, this index
+    // is only used at the last (relevant) stride, so the offset is always 0.
     fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize;
+
+    // Clear the bitmap to the right of the pointer and count the number of ones.
+    // This number represents the index to the corresponding child node in the ptr_vec.
+
+    // Clearing is performed by shifting to the right until we have the nibble
+    // all the way at the right.
+
+    // For ptrbitarr the only index we want is the one for a full-length nibble
+    // (stride length) at the last stride, so we don't need the length of the nibble
+
+    // `(<Self as Stride>::BITS >> 1)`
+    // The end of the bitmap (this bitmap is half the size of the pfx bitmap),
+    // ::BITS is the size of the pfx bitmap.
+
+    // `nibble`
+    // The bit position relative to the offset for the nibble length, this index
+    // is only used at the last (relevant) stride, so the offset is always 0.
     fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize;
+
+    // Convert a ptrbitarr into a pfxbitarr sized bitmap,
+    // so we can do bitwise operations with a pfxbitarr sized
+    // bitmap on them.
+    // Since the last bit in the pfxbitarr isn't used, but the
+    // full ptrbitarr *is* used, the prtbitarr should be shifted
+    // one bit to the left.
     fn into_stride_size(bitmap: Self::PtrSize) -> Self;
     fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize;
 }
@@ -48,6 +98,36 @@ impl Stride for Stride3 {
 
     fn into_ptrbitarr_size(bitmap: Self) -> u8 {
         bitmap as u8
+    }
+}
+
+impl Stride for Stride4 {
+    type PtrSize = u16;
+    const BITS: u8 = 32;
+    const STRIDE_LEN: u8 = 4;
+
+    fn get_bit_pos(nibble: u32, len: u8) -> u32 {
+        1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
+    }
+
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize))
+            .count_ones() as usize
+            - 1
+    }
+
+    fn get_ptr_index(bitmap: u16, nibble: u32) -> usize {
+        (bitmap >> ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
+            as usize
+            - 1
+    }
+
+    fn into_stride_size(bitmap: u16) -> u32 {
+        (bitmap as u32) << 1
+    }
+
+    fn into_ptrbitarr_size(bitmap: u32) -> u16 {
+        bitmap as u16
     }
 }
 
@@ -106,86 +186,6 @@ impl Stride for Stride6 {
 
     fn into_ptrbitarr_size(bitmap: u128) -> u64 {
         bitmap as u64
-    }
-}
-
-impl Stride for Stride4 {
-    type PtrSize = u16;
-    const BITS: u8 = 32;
-    const STRIDE_LEN: u8 = 4;
-
-    fn get_bit_pos(nibble: u32, len: u8) -> u32 {
-        // Get the bit position of the start of the given nibble.
-        // The nibble is defined as a `len` number of bits set from the right.
-
-        // `<Self as Stride>::BITS`
-        // is the whole length of the bitmap, since we are shifting to the left,
-        // we have to start at the end of the bitmap.
-        // `((1 << len) - 1)`
-        // is the offset for this nibble length in the bitmap.
-        // `nibble`
-        // shifts to the right position withing the bit range for this nibble
-        // length, this follows from the fact that the `nibble` value represents
-        // *both* the bitmap part, we're considering here *and* the position
-        // relative to the nibble length offset in the bitmap.
-
-        1 << (<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
-    }
-
-    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
-        // Clear the bitmap to the right of the pointer and count the number of ones.
-        // This numbder represents the index to the corresponding prefix in the pfx_vec.
-
-        // Clearing is performed by shifting to the right until we have the nibble
-        // all the way at the right.
-
-        // `(<Self as Stride>::BITS >> 1)`
-        // The end of the bitmap (this bitmap is half the size of the pfx bitmap)
-
-        // `nibble`
-        // The bit position relative to the offset for the nibble length, this index
-        // is only used at the last (relevant) stride, so the offset is always 0.
-
-        (bitmap >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1) as usize))
-            .count_ones() as usize
-            - 1
-    }
-
-    fn get_ptr_index(bitmap: u16, nibble: u32) -> usize {
-        // Clear the bitmap to the right of the pointer and count the number of ones.
-        // This number represents the index to the corresponding child node in the ptr_vec.
-
-        // Clearing is performed by shifting to the right until we have the nibble
-        // all the way at the right.
-
-        // For ptrbitarr the only index we want is the one for a full-length nibble
-        // (stride length) at the last stride, so we don't need the length of the nibble
-
-        // `(<Self as Stride>::BITS >> 1)`
-        // The end of the bitmap (this bitmap is half the size of the pfx bitmap),
-        // ::BITS is the size of the pfx bitmap.
-
-        // `nibble`
-        // The bit position relative to the offset for the nibble length, this index
-        // is only used at the last (relevant) stride, so the offset is always 0.
-
-        (bitmap >> ((<Self as Stride>::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
-            as usize
-            - 1
-    }
-
-    fn into_stride_size(bitmap: u16) -> u32 {
-        // Convert a ptrbitarr into a pfxbitarr sized bitmap,
-        // so we can do bitwise operations with a pfxbitarr sized
-        // bitmap on them.
-        // Since the last bit in the pfxbitarr isn't used, but the
-        // full ptrbitarr *is* used, the prtbitarr should be shifted
-        // one bit to the left.
-        (bitmap as u32) << 1
-    }
-
-    fn into_ptrbitarr_size(bitmap: u32) -> u16 {
-        bitmap as u16
     }
 }
 
@@ -384,7 +384,6 @@ where
         next_stride: Option<&&u8>,
         is_last_stride: bool,
     ) -> Option<&mut SizedStrideNode<'a, AF, T>> {
-     
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
 
         // println!("n {:b} nl {}", nibble, nibble_len);
@@ -702,7 +701,7 @@ where
                     None => {
                         return;
                     }
-                }
+                },
             }
         }
     }
