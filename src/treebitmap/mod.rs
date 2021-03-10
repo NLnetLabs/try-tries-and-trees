@@ -487,7 +487,6 @@ impl Stride for Stride8 {
             // so we only have to count bitmap.0 zeroes than (after) shifting of course).
             n => (bitmap.0 >> n).count_ones() as usize - 1,
         }
-
     }
 
     fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize {
@@ -518,7 +517,6 @@ impl Stride for Stride8 {
             bitmap.1 << 1,
         )
         // U256(bitmap >> 127, bitmap << 1)
-
     }
 
     fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize {
@@ -837,8 +835,9 @@ where
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
         is_last_stride: bool,
-    ) -> Option<&mut SizedStrideNode<'a, AF, T>> {
+    ) -> Option<(&mut SizedStrideNode<'a, AF, T>, u64)> {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
+        let mut num_created_nodes: u64 = 0;
 
         // println!("n {:b} nl {}", nibble, nibble_len);
 
@@ -915,6 +914,7 @@ where
 
                 self.ptr_vec.push(new_node);
                 self.ptr_vec.sort();
+                num_created_nodes += 1;
             }
         } else {
             // only at the last stride do we create the bit in the prefix bitmap,
@@ -947,7 +947,10 @@ where
         // // println!("{}", next_index);
         // println!("{:?}", self.ptr_vec);
         // println!("?? {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
-        Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
+        Some((
+            &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
+            num_created_nodes,
+        ))
     }
 
     fn search<'b>(
@@ -1029,7 +1032,7 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
-    const STRIDES: [u8; 4] = [8, 8, 8, 8];
+    const STRIDES: [u8; 4] = [8; 4];
     pub fn new() -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
         assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
@@ -1115,11 +1118,14 @@ where
     // 5 - 5 - 5 - 4 - 4 - [4] - 5
     // startpos (2 ^ nibble length) - 1 + nibble as usize
 
-    pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
+    pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) -> Vec<u64> {
         // println!("");
         // println!("{:?}", pfx);
         // println!("             0   4   8   12  16  20  24  28  32  36  40  44  48  52  56  60  64  68  72  76  80  84  88  92  96 100 104 108 112 116 120 124 128");
         // println!("             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        // vec of created_nodes per vec starting from Stride3..Stride8
+        let mut num_created_nodes: Vec<u64> = vec![0; 6];
+
         let mut stride_end: u8 = 0;
         let mut node = &mut self.0;
         let mut strides = Self::STRIDES.iter().peekable();
@@ -1137,9 +1143,6 @@ where
             // Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
 
             node = match node {
-                // pfx.len
-                // stride_end
-                // nibble,nibble_len
                 SizedStrideNode::Stride3(current_node) => match current_node.traverse(
                     nibble,
                     nibble_len,
@@ -1147,9 +1150,12 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[0] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
                 SizedStrideNode::Stride4(current_node) => match current_node.traverse(
@@ -1159,9 +1165,12 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[1] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
                 SizedStrideNode::Stride5(current_node) => match current_node.traverse(
@@ -1171,9 +1180,12 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[2] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
                 SizedStrideNode::Stride6(current_node) => match current_node.traverse(
@@ -1183,9 +1195,12 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[3] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
                 SizedStrideNode::Stride7(current_node) => match current_node.traverse(
@@ -1195,9 +1210,12 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[4] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
                 SizedStrideNode::Stride8(current_node) => match current_node.traverse(
@@ -1207,13 +1225,17 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some(n) => n,
+                    Some((n, num_nodes)) => {
+                        num_created_nodes[5] += num_nodes;
+                        n
+                    }
                     None => {
-                        return;
+                        return num_created_nodes;
                     }
                 },
             }
         }
+        num_created_nodes
     }
 
     pub fn match_longest_prefix(
@@ -1332,7 +1354,7 @@ where
                         nibble,
                         nibble_len,
                         stride_end - stride,
-                        &mut found_pfx
+                        &mut found_pfx,
                     ) {
                         Some(n) => {
                             node = n;
