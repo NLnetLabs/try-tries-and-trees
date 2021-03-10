@@ -4,8 +4,18 @@ use std::cmp::Ordering;
 use std::fmt::{Binary, Debug};
 
 // pub struct BitMap8stride(u8, 8);
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct U256(u128, u128);
+
+impl Debug for U256 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{:0128b}\n             {:0128b}",
+            self.0, self.1
+        ))
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct U512(u128, u128, u128, u128);
 
@@ -25,14 +35,29 @@ impl PartialOrd for U256 {
     }
 }
 
-// impl std::ops::Shr<Stride7> for Stride7 {
-//     type Output = Self;
+impl Ord for U256 {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self.0, &other.0) {
+            (a, b) if &a > b => self.0.cmp(&other.0),
+            _ => self.1.cmp(&other.1),
+        }
+    }
+}
 
-//     fn shr(self, Self(rhs0, rhs1): Self) -> Self::Output {
-//         let Self(lhs, rrhs0) = self;
-//         Self(lhs >> rhs0, 0)
-//     }
-// }
+impl PartialOrd for U512 {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self.0, &other.0) {
+            (a, b) if &a > b => Some(self.0.cmp(&other.0)),
+            _ => match (self.1, &other.1) {
+                (a, b) if &a > b => Some(self.1.cmp(&other.1)),
+                _ => match (self.2, &other.2) {
+                    (a, b) if &a > b => Some(self.2.cmp(&other.2)),
+                    _ => Some(self.3.cmp(&other.3)),
+                },
+            },
+        }
+    }
+}
 
 pub trait Stride: Sized + Debug + Binary + Eq + PartialOrd + PartialEq + Debug + Copy {
     type PtrSize;
@@ -309,23 +334,34 @@ impl Stride for Stride7 {
     const STRIDE_LEN: u8 = 7;
 
     fn get_bit_pos(nibble: u32, len: u8) -> Self {
-        match <Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1 {
-            n if n < 128 => U256(1 << n, 0),
-            n => U256(0, 1 << (n as u16 - 256)),
+        match 256 - ((1 << len) - 1) as u16 - nibble as u16 - 1 {
+            n if n < 128 => {
+                // println!("n {}", n);
+                U256(0, 1 << n)
+            }
+            n => {
+                // println!("nn {}", n);
+                U256(1 << (n as u16 - 128), 0)
+            }
         }
     }
 
     fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
-        let n = (256 - ((1 << len) - 1) as u16 - nibble as u16 - 1) % 256;
-        let a = bitmap.0 >> n;
-        let b = (bitmap.1 >> n) | (bitmap.0 << (256 - n));
-        (a.count_ones() + b.count_ones() - 1) as usize
-
-        // (bitmap.0
-        //     >> ((<Self as Stride>::BITS - ((1 << len) - 1) as u8 - nibble as u8 - 1)
-        //         as usize))
-        //     .count_ones() as usize
-        //     - 1
+        let n = 256 - ((1 << len) - 1) as u16 - nibble as u16 - 1;
+        match n {
+            // if we move less than 128 bits to the right,
+            // all of bitmap.0 and a part of bitmap.1 will be used for counting zeros
+            // ex.
+            // ...1011_1010... >> 2 => ...0010_111010...
+            //    ____ ====                 -- --====
+            n if n < 128 => {
+                bitmap.0.count_ones() as usize + (bitmap.1 >> n).count_ones() as usize - 1
+            }
+            // if we move more than 128 bits to the right,
+            // all of bitmap.1 wil be shifted out of sight,
+            // so we only have to count bitmap.0 zeroes than (after) shifting of course).
+            n => (bitmap.0 >> n).count_ones() as usize - 1,
+        }
     }
 
     fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize {
@@ -333,11 +369,16 @@ impl Stride for Stride7 {
     }
 
     fn into_stride_size(bitmap: Self::PtrSize) -> Self {
-        U256(0, (bitmap as u128) << 1)
+        // One bit needs to move into the self.0 u128,
+        // since the last bit of the *whole* bitmap isn't used.
+        U256(bitmap >> 127, bitmap << 1)
     }
 
     fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize {
-        (bitmap.1 >> 1) as u128
+        // TODO expand:
+        // self.ptrbitarr =
+        // S::into_ptrbitarr_size(bit_pos | S::into_stride_size(self.ptrbitarr));
+        (bitmap.0 << 127 | bitmap.1 >> 1) as u128
     }
 
     #[inline]
@@ -352,7 +393,14 @@ impl Stride for Stride7 {
 
     #[inline]
     fn leading_zeros(self) -> u32 {
-        self.0.leading_zeros() + self.1.leading_zeros()
+        let lz = self.0.leading_zeros();
+        let r = if lz == 128 {
+            lz + self.1.leading_zeros()
+        } else {
+            lz
+        };
+        // println!("lz {}", r);
+        r
     }
 }
 
@@ -387,6 +435,169 @@ impl std::ops::BitAnd<Self> for Stride7 {
     }
 }
 
+impl Stride for Stride8 {
+    type PtrSize = U256;
+    const BITS: u8 = 255; // bogus
+    const STRIDE_LEN: u8 = 8;
+
+    fn get_bit_pos(nibble: u32, len: u8) -> Self {
+        match 512 - ((1 << len) - 1) as u16 - nibble as u16 - 1 {
+            n if n < 128 => {
+                // println!("n {}", n);
+                U512(0, 0, 0, 1 << n)
+            }
+            n if n < 256 => U512(0, 0, 1 << (n as u16 - 128), 0),
+            n if n < 384 => {
+                // println!("nn {}", n);
+                U512(0, 1 << (n as u16 - 256), 0, 0)
+            }
+            n => U512(1 << (n as u16 - 384), 0, 0, 0),
+        }
+    }
+
+    fn get_pfx_index(bitmap: Self, nibble: u32, len: u8) -> usize {
+        let n = 512 - ((1 << len) - 1) as u16 - nibble as u16 - 1;
+        match n {
+            // if we move less than 128 bits to the right,
+            // all of bitmap.2 and a part of bitmap.3 will be used for counting zeros
+            // ex.
+            // ...1011_1010... >> 2 => ...0010_111010...
+            //    ____ ====                 -- --====
+            n if n < 128 => {
+                bitmap.0.count_ones() as usize
+                    + bitmap.1.count_ones() as usize
+                    + bitmap.2.count_ones() as usize
+                    + (bitmap.3 >> n).count_ones() as usize
+                    - 1
+            }
+
+            n if n < 256 => {
+                bitmap.0.count_ones() as usize
+                    + bitmap.1.count_ones() as usize
+                    + (bitmap.2 >> n).count_ones() as usize
+                    - 1
+            }
+
+            n if n < 384 => {
+                bitmap.0.count_ones() as usize + (bitmap.1 >> n).count_ones() as usize - 1
+            }
+
+            // if we move more than 384 bits to the right,
+            // all of bitmap.[1,2,3] will be shifted out of sight,
+            // so we only have to count bitmap.0 zeroes than (after) shifting of course).
+            n => (bitmap.0 >> n).count_ones() as usize - 1,
+        }
+
+    }
+
+    fn get_ptr_index(bitmap: Self::PtrSize, nibble: u32) -> usize {
+        let n = (512 >> 1) - nibble as u16 - 1;
+        match n {
+            // if we move less than 256 bits to the right,
+            // all of bitmap.0 and a part of bitmap.1 will be used for counting zeros
+            // ex.
+            // ...1011_1010... >> 2 => ...0010_111010...
+            //    ____ ====                 -- --====
+            n if n < 128 => {
+                bitmap.0.count_ones() as usize + (bitmap.1 >> n).count_ones() as usize - 1
+            }
+            // if we move more than 256 bits to the right,
+            // all of bitmap.1 wil be shifted out of sight,
+            // so we only have to count bitmap.0 zeroes than (after) shifting of course).
+            n => (bitmap.0 >> n).count_ones() as usize - 1,
+        }
+    }
+
+    fn into_stride_size(bitmap: Self::PtrSize) -> Self {
+        // One bit needs to move into the self.0 u128,
+        // since the last bit of the *whole* bitmap isn't used.
+        U512(
+            0,
+            bitmap.0 >> 127,
+            (bitmap.0 << 1) | (bitmap.1 >> 127),
+            bitmap.1 << 1,
+        )
+        // U256(bitmap >> 127, bitmap << 1)
+
+    }
+
+    fn into_ptrbitarr_size(bitmap: Self) -> Self::PtrSize {
+        // TODO expand:
+        // self.ptrbitarr =
+        // S::into_ptrbitarr_size(bit_pos | S::into_stride_size(self.ptrbitarr));
+        U256(
+            (bitmap.1 << 127 | bitmap.2 >> 1) as u128,
+            (bitmap.2 << 127 | bitmap.3 >> 1) as u128,
+        )
+    }
+
+    #[inline]
+    fn zero() -> Self {
+        U512(0, 0, 0, 0)
+    }
+
+    #[inline]
+    fn one() -> Self {
+        U512(0, 0, 0, 1)
+    }
+
+    #[inline]
+    fn leading_zeros(self) -> u32 {
+        let mut lz = self.0.leading_zeros();
+        if lz == 128 {
+            lz += self.1.leading_zeros();
+            if lz == 256 {
+                lz += self.2.leading_zeros();
+                if lz == 384 {
+                    lz += self.3.leading_zeros();
+                }
+            }
+        }
+        lz
+    }
+}
+
+impl PartialEq for Stride8 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
+    }
+}
+
+impl Eq for Stride8 {}
+
+impl Binary for Stride8 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Binary::fmt(&self, f)
+    }
+}
+
+impl std::ops::BitOr<Self> for Stride8 {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(
+            self.0 | rhs.0,
+            self.1 | rhs.1,
+            self.2 | rhs.2,
+            self.3 | rhs.3,
+        )
+    }
+}
+
+impl std::ops::BitAnd<Self> for Stride8 {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output
+    where
+        Self: Eq,
+    {
+        Self(
+            self.0 & rhs.0,
+            self.1 & rhs.1,
+            self.2 & rhs.2,
+            self.3 & rhs.3,
+        )
+    }
+}
+
 #[derive(Debug)]
 pub enum SizedStrideNode<'a, AF, T>
 where
@@ -398,6 +609,7 @@ where
     Stride5(TreeBitMapNode<'a, AF, T, Stride5>),
     Stride6(TreeBitMapNode<'a, AF, T, Stride6>),
     Stride7(TreeBitMapNode<'a, AF, T, Stride7>),
+    Stride8(TreeBitMapNode<'a, AF, T, Stride8>),
 }
 
 // pub enum SizeStrideVec<'a, AF, T, S>
@@ -417,7 +629,7 @@ where
     S: Stride,
     <S as Stride>::PtrSize: Debug + Binary + Copy,
 {
-    bit_id: u8,
+    bit_id: u16,
     ptrbitarr: <S as Stride>::PtrSize,
     pfxbitarr: S,
     pfx_vec: Vec<&'a Prefix<AF, T>>,
@@ -473,6 +685,13 @@ where
                     0.cmp(&1)
                 }
             }
+            SizedStrideNode::Stride8(nn) => {
+                if let SizedStrideNode::Stride8(mm) = other {
+                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
+                } else {
+                    0.cmp(&1)
+                }
+            }
         }
     }
 }
@@ -514,6 +733,13 @@ where
             }
             SizedStrideNode::Stride7(nn) => {
                 if let SizedStrideNode::Stride7(mm) = other {
+                    Some(nn.bit_id.cmp(&mm.bit_id))
+                } else {
+                    Some(0.cmp(&10))
+                }
+            }
+            SizedStrideNode::Stride8(nn) => {
+                if let SizedStrideNode::Stride8(mm) = other {
                     Some(nn.bit_id.cmp(&mm.bit_id))
                 } else {
                     Some(0.cmp(&10))
@@ -565,6 +791,13 @@ where
                     true
                 }
             }
+            SizedStrideNode::Stride8(n) => {
+                if let SizedStrideNode::Stride7(m) = other {
+                    n.bit_id == m.bit_id
+                } else {
+                    true
+                }
+            }
         }
         // let SizedStrideNode::Stride4(n) = self;
         // let SizedStrideNode::Stride4(m) = other;
@@ -593,10 +826,8 @@ impl<'a, AF, T, S> TreeBitMapNode<'a, AF, T, S>
 where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
-    S: Stride
-        + std::ops::BitAnd<Output = S>
-        + std::ops::BitOr<Output = S>,
-        // + std::ops::Shr<Output = S>,
+    S: Stride + std::ops::BitAnd<Output = S> + std::ops::BitOr<Output = S>,
+    // + std::ops::Shr<Output = S>,
     <S as Stride>::PtrSize: Debug + Binary + Copy,
 {
     fn traverse(
@@ -630,43 +861,50 @@ where
                     S::into_ptrbitarr_size(bit_pos | S::into_stride_size(self.ptrbitarr));
 
                 // println!(
-                //     "__ptr[{:02}]__: xxxxxxxxxxxxxxx{:016b}x",
-                //     stride_end, self.ptrbitarr
+                //     "ptr[{:?}]: xxxxxxxxxxxxxxx{:0128b}x",
+                //     next_stride, self.ptrbitarr
                 // );
                 // println!("bit_id: {}", bit_pos.leading_zeros());
                 let new_node = match next_stride.unwrap() {
                     3_u8 => SizedStrideNode::Stride3(TreeBitMapNode {
-                        bit_id: bit_pos.leading_zeros() as u8,
+                        bit_id: bit_pos.leading_zeros() as u16,
                         ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
                         pfxbitarr: Stride3::zero(),
                         pfx_vec: vec![],
                         ptr_vec: vec![],
                     }),
                     4_u8 => SizedStrideNode::Stride4(TreeBitMapNode {
-                        bit_id: bit_pos.leading_zeros() as u8,
+                        bit_id: bit_pos.leading_zeros() as u16,
                         ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
                         pfxbitarr: Stride4::zero(),
                         pfx_vec: vec![],
                         ptr_vec: vec![],
                     }),
                     5_u8 => SizedStrideNode::Stride5(TreeBitMapNode {
-                        bit_id: bit_pos.leading_zeros() as u8,
+                        bit_id: bit_pos.leading_zeros() as u16,
                         ptrbitarr: <Stride5 as Stride>::PtrSize::zero(),
                         pfxbitarr: Stride5::zero(),
                         pfx_vec: vec![],
                         ptr_vec: vec![],
                     }),
                     6_u8 => SizedStrideNode::Stride6(TreeBitMapNode {
-                        bit_id: bit_pos.leading_zeros() as u8,
+                        bit_id: bit_pos.leading_zeros() as u16,
                         ptrbitarr: <Stride6 as Stride>::PtrSize::zero(),
                         pfxbitarr: Stride6::zero(),
                         pfx_vec: vec![],
                         ptr_vec: vec![],
                     }),
                     7_u8 => SizedStrideNode::Stride7(TreeBitMapNode {
-                        bit_id: bit_pos.leading_zeros() as u8,
+                        bit_id: bit_pos.leading_zeros() as u16,
                         ptrbitarr: 0_u128,
                         pfxbitarr: U256(0_u128, 0_u128),
+                        pfx_vec: vec![],
+                        ptr_vec: vec![],
+                    }),
+                    8_u8 => SizedStrideNode::Stride8(TreeBitMapNode {
+                        bit_id: bit_pos.leading_zeros() as u16,
+                        ptrbitarr: U256(0_u128, 0_u128),
+                        pfxbitarr: U512(0_u128, 0_u128, 0_u128, 0_u128),
                         pfx_vec: vec![],
                         ptr_vec: vec![],
                     }),
@@ -684,8 +922,8 @@ where
             if self.pfxbitarr & bit_pos == <S as std::ops::BitAnd>::Output::zero() {
                 self.pfxbitarr = bit_pos | self.pfxbitarr;
                 // println!(
-                //     "pfx[{:02}]n[{}]: {:032b}",
-                //     stride_end, nibble_len, self.pfxbitarr
+                //     "pfx[{:?}]n[{}]: {:032b}",
+                //     next_stride, nibble_len, self.pfxbitarr
                 // );
 
                 self.pfx_vec.push(pfx);
@@ -695,19 +933,20 @@ where
             return None;
         }
 
-        // println!("__bit_pos__: {:032b}", bit_pos);
+        // println!("__bit_pos__: {:?}", bit_pos);
         // println!(
-        //     "__ptr[{:02}]__: xxxxxxxxxxxxxxx{:016b}x",
-        //     stride_end, self.ptrbitarr
+        //     "ptr[{:?}]: xxxxxxxxxxxxxxx{:0128b}x",
+        //     next_stride, self.ptrbitarr
         // );
-        // // println!("{:?}", self.ptr_vec);
+        // println!("{:?}", self.ptr_vec);
         // println!("{}", (Stride4::BITS >> 1) - nibble as u8 - 1);
         // println!(
         //     "{}",
         //     (self.ptrbitarr >> ((Stride4::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
         // );
-        // println!("{}", next_index);
+        // // println!("{}", next_index);
         // println!("{:?}", self.ptr_vec);
+        // println!("?? {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
         Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
     }
 
@@ -740,7 +979,7 @@ where
             //     nibble
             // );
             // println!("bit_pos:     {:032b}", bit_pos);
-            // println!("___pfx:      {:032b}", current_node.pfxbitarr);
+            // println!("___pfx:      {:032b}", self.pfxbitarr);
             // println!(
             //     "___ptr:      xxxxxxxxxxxxxxx{:016b}x",
             //     current_node.ptrbitarr
@@ -750,6 +989,7 @@ where
             // Check it there's an prefix matching in this bitmap for this nibble
             if self.pfxbitarr & bit_pos > S::zero() {
                 found_pfx.push(self.pfx_vec[S::get_pfx_index(self.pfxbitarr, nibble, n_l)]);
+                // println!("vec: {:?}", self.pfx_vec);
                 println!("found: {:?}", found_pfx);
             }
         }
@@ -789,7 +1029,7 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
-    const STRIDES: [u8; 6] = [6, 6, 6, 6, 5, 3];
+    const STRIDES: [u8; 4] = [8, 8, 8, 8];
     pub fn new() -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
         assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
@@ -815,13 +1055,30 @@ where
                 ptr_vec: vec![],
                 pfx_vec: vec![],
             }),
-            _ => SizedStrideNode::Stride6(TreeBitMapNode {
+            6 => SizedStrideNode::Stride6(TreeBitMapNode {
                 bit_id: 0,
                 ptrbitarr: 0,
                 pfxbitarr: 0,
                 ptr_vec: vec![],
                 pfx_vec: vec![],
             }),
+            7 => SizedStrideNode::Stride7(TreeBitMapNode {
+                bit_id: 0,
+                ptrbitarr: 0,
+                pfxbitarr: U256(0, 0),
+                ptr_vec: vec![],
+                pfx_vec: vec![],
+            }),
+            8 => SizedStrideNode::Stride8(TreeBitMapNode {
+                bit_id: 0,
+                ptrbitarr: U256(0, 0),
+                pfxbitarr: U512(0, 0, 0, 0),
+                ptr_vec: vec![],
+                pfx_vec: vec![],
+            }),
+            _ => {
+                panic!("unknown stride size encountered in STRIDES array");
+            }
         };
 
         TreeBitMap(node)
@@ -861,8 +1118,8 @@ where
     pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
         // println!("");
         // println!("{:?}", pfx);
-        // println!("             0   4   8   12  16  20  24  28  32");
-        // println!("             |---|---|---|---|---|---|---|---|");
+        // println!("             0   4   8   12  16  20  24  28  32  36  40  44  48  52  56  60  64  68  72  76  80  84  88  92  96 100 104 108 112 116 120 124 128");
+        // println!("             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         let mut stride_end: u8 = 0;
         let mut node = &mut self.0;
         let mut strides = Self::STRIDES.iter().peekable();
@@ -932,6 +1189,18 @@ where
                     }
                 },
                 SizedStrideNode::Stride7(current_node) => match current_node.traverse(
+                    nibble,
+                    nibble_len,
+                    pfx,
+                    strides.peek(),
+                    pfx.len <= stride_end,
+                ) {
+                    Some(n) => n,
+                    None => {
+                        return;
+                    }
+                },
+                SizedStrideNode::Stride8(current_node) => match current_node.traverse(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1058,6 +1327,22 @@ where
                     }
                 }
                 SizedStrideNode::Stride7(current_node) => {
+                    match current_node.search(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                        &mut found_pfx
+                    ) {
+                        Some(n) => {
+                            node = n;
+                        }
+                        None => {
+                            return found_pfx;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride8(current_node) => {
                     match current_node.search(
                         search_pfx,
                         nibble,
