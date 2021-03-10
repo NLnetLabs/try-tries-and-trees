@@ -55,9 +55,12 @@ fn main() {
         Prefix::<u32, PrefixAs>::new(0b1111_1111_0000_0001_0000_0000_0000_0000_u32, 12),
         Prefix::<u32, PrefixAs>::new(0b1111_1111_0011_0111_0000_0000_0000_0000_u32, 17),
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(100, 0, 12, 0).into(), 24),
+        Prefix::new(0b0000_0001_0000_0000_0000_0000_0000_0000_u32, 24),
+        Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(1, 0, 128, 0).into(), 24),
     ];
 
     for pfx in pfxs.iter() {
+        println!("insert {:?}", pfx);
         tree_bitmap.insert(pfx);
     }
     println!("------ end of inserts\n");
@@ -96,6 +99,9 @@ fn main() {
         Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(100, 0, 12, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(255, 255, 255, 255).into(), 32),
+        Prefix::new(std::net::Ipv4Addr::new(1, 0, 0, 0).into(), 24),
+        Prefix::new(std::net::Ipv4Addr::new(1, 0, 128, 0).into(), 24),
+
     ] {
         println!("search for: {:?}", spfx);
         let s_spfx = tree_bitmap.match_longest_prefix(&spfx);
