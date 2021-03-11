@@ -50,18 +50,25 @@ fn main() {
         process::exit(1);
     }
     println!("finished loading {} prefixes...", pfxs.len());
-    let mut num_created_nodes: Vec<u64> = vec![0; 6];
     for pfx in pfxs.iter() {
-        let new_nodes = tree_bitmap.insert(pfx);
-        num_created_nodes = new_nodes
-            .iter()
-            .enumerate()
-            .map(|s: (usize, &u64)| s.1 + num_created_nodes[s.0])
-            .collect();
+        tree_bitmap.insert(pfx);
     }
 
     println!("finished building tree...");
-    println!("{:?} nodes created", num_created_nodes);
+    println!(
+        "{:?} nodes created",
+        tree_bitmap.1.iter().fold(0, |mut acc, c| {
+            acc += c.created_nodes.iter().fold(0, |mut sum, l| {
+                sum += l.count;
+                sum
+            });
+            acc
+        })
+    );
+    println!("stride division  {:?}", TreeBitMap::<u32, PrefixAs>::STRIDES);
+    for s in &tree_bitmap.1 {
+        println!("{:?}", s);
+    }
 
     let spfx = Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23);
     let fpfx = tree_bitmap.match_longest_prefix(&spfx);
