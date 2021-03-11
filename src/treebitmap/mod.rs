@@ -818,6 +818,12 @@ where
     // + std::ops::Shr<Output = S>,
     <S as Stride>::PtrSize: Debug + Binary + Copy,
 {
+    // Inspects the stride (nibble, nibble_len) to see it there's
+    // already a child node. Will create one if it's not there.
+    // Returns
+    // - A pointer to the child node if it exists.
+    // - A pointer to the newly created child node if it didn't exist.
+    // - None if this is the last stride.
     fn traverse(
         self: &mut Self,
         nibble: u32,
@@ -825,9 +831,9 @@ where
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
         is_last_stride: bool,
-    ) -> Option<(&mut SizedStrideNode<'a, AF, T>, u64)> {
+    ) -> Option<(&mut SizedStrideNode<'a, AF, T>, bool)> {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
-        let mut num_created_nodes = 0;
+        let mut has_created_node = false;
         // println!("n {:b} nl {}", nibble, nibble_len);
 
         // Check that we're not at the last stride (pfx.len <= stride_end),
@@ -916,7 +922,7 @@ where
 
                 self.ptr_vec.push(new_node);
                 self.ptr_vec.sort();
-                num_created_nodes += 1;
+                has_created_node = true;
             }
         } else {
             // only at the last stride do we create the bit in the prefix bitmap,
@@ -951,7 +957,7 @@ where
         // println!("?? {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
         Some((
             &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
-            num_created_nodes,
+            has_created_node,
         ))
     }
 
@@ -1024,10 +1030,14 @@ where
     }
 }
 
-pub struct TreeBitMap<'a, AF, T>(SizedStrideNode<'a, AF, T>, pub Vec<StrideStats>)
+pub struct TreeBitMap<'a, AF, T>
 where
     T: Debug,
-    AF: AddressFamily + Debug + PrimInt;
+    AF: AddressFamily + Debug + PrimInt,
+{
+    root: SizedStrideNode<'a, AF, T>,
+    pub stats: Vec<StrideStats>,
+}
 
 impl<'a, AF, T> TreeBitMap<'a, AF, T>
 where
@@ -1036,15 +1046,15 @@ where
 {
     pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
 
-    const STRIDES_SEQ: [SizedStride; 7] = [
-        SizedStride::Stride7,
-        SizedStride::Stride5,
-        SizedStride::Stride5,
-        SizedStride::Stride5,
-        SizedStride::Stride3,
-        SizedStride::Stride4,
-        SizedStride::Stride3,
-    ];
+    //    const STRIDES_SEQ: [SizedStride; 7] = [
+    //         SizedStride::Stride7,
+    //         SizedStride::Stride5,
+    //         SizedStride::Stride5,
+    //         SizedStride::Stride5,
+    //         SizedStride::Stride3,
+    //         SizedStride::Stride4,
+    //         SizedStride::Stride3,
+    //     ];
 
     pub fn new() -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
@@ -1070,7 +1080,7 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[0].add(1, 0);
+                stride_stats[0].inc(0);
             }
             4 => {
                 node = SizedStrideNode::Stride4(TreeBitMapNode {
@@ -1080,7 +1090,7 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[1].add(1, 0);
+                stride_stats[1].inc(0);
             }
             5 => {
                 node = SizedStrideNode::Stride5(TreeBitMapNode {
@@ -1090,7 +1100,7 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[2].add(1, 0);
+                stride_stats[2].inc(0);
             }
             6 => {
                 node = SizedStrideNode::Stride6(TreeBitMapNode {
@@ -1100,7 +1110,7 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[3].add(1, 0);
+                stride_stats[3].inc(0);
             }
             7 => {
                 node = SizedStrideNode::Stride7(TreeBitMapNode {
@@ -1110,7 +1120,7 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[4].add(1, 0);
+                stride_stats[4].inc(0);
             }
             8 => {
                 node = SizedStrideNode::Stride8(TreeBitMapNode {
@@ -1120,14 +1130,14 @@ where
                     ptr_vec: vec![],
                     pfx_vec: vec![],
                 });
-                stride_stats[5].add(1, 0);
+                stride_stats[5].inc(0);
             }
             _ => {
                 panic!("unknown stride size encountered in STRIDES array");
             }
         };
 
-        TreeBitMap(node, stride_stats)
+        TreeBitMap { root: node, stats: stride_stats }
     }
 
     // Partition for stride 4
@@ -1168,7 +1178,7 @@ where
         // println!("             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 
         let mut stride_end: u8 = 0;
-        let mut node = &mut self.0;
+        let mut node = &mut self.root;
         let mut level: u8 = 0;
         let mut strides = Self::STRIDES.iter().peekable();
         while let Some(stride) = strides.next() {
@@ -1192,8 +1202,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[0].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[0].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1207,8 +1219,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[1].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[1].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1222,8 +1236,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[2].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[2].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1237,8 +1253,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[3].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[3].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1252,8 +1270,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[4].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[4].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1267,8 +1287,10 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, num_nodes)) => {
-                        self.1[5].add(num_nodes as usize, level);
+                    Some((n, has_created_node)) => {
+                        if has_created_node {
+                            self.stats[5].inc(level);
+                        }
                         n
                     }
                     None => {
@@ -1288,7 +1310,7 @@ where
     ) -> Vec<&'a Prefix<AF, T>> {
         let mut stride_end = 0;
         let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
-        let mut node = &self.0;
+        let mut node = &self.root;
         // println!("");
         // println!("{:?}", search_pfx);
         // println!("             0   4   8   12  16  20  24  28  32");
@@ -1515,8 +1537,8 @@ impl StrideStats {
         vec
     }
 
-    fn add(&mut self, num: usize, depth_level: u8) {
-        self.created_nodes[depth_level as usize].count += num as usize;
+    fn inc(&mut self, depth_level: u8) {
+        self.created_nodes[depth_level as usize].count += 1;
     }
 }
 
