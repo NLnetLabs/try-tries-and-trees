@@ -820,11 +820,12 @@ where
 {
     // Inspects the stride (nibble, nibble_len) to see it there's
     // already a child node. Will create one if it's not there.
+    // Will store the Prefix if this is the last stride.
     // Returns
     // - A pointer to the child node if it exists.
     // - A pointer to the newly created child node if it didn't exist.
     // - None if this is the last stride.
-    fn traverse(
+    fn upsert(
         self: &mut Self,
         nibble: u32,
         nibble_len: u8,
@@ -1195,7 +1196,7 @@ where
             // Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
 
             node = match node {
-                SizedStrideNode::Stride3(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride3(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1212,7 +1213,7 @@ where
                         return;
                     }
                 },
-                SizedStrideNode::Stride4(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride4(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1229,7 +1230,7 @@ where
                         return;
                     }
                 },
-                SizedStrideNode::Stride5(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride5(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1246,7 +1247,7 @@ where
                         return;
                     }
                 },
-                SizedStrideNode::Stride6(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride6(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1263,7 +1264,7 @@ where
                         return;
                     }
                 },
-                SizedStrideNode::Stride7(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride7(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
@@ -1280,7 +1281,7 @@ where
                         return;
                     }
                 },
-                SizedStrideNode::Stride8(current_node) => match current_node.traverse(
+                SizedStrideNode::Stride8(current_node) => match current_node.upsert(
                     nibble,
                     nibble_len,
                     pfx,
