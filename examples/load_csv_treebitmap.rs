@@ -55,16 +55,16 @@ fn main() {
     }
 
     println!("finished building tree...");
-    println!(
-        "{:?} nodes created",
-        tree_bitmap.stats.iter().fold(0, |mut acc, c| {
-            acc += c.created_nodes.iter().fold(0, |mut sum, l| {
-                sum += l.count;
-                sum
-            });
-            acc
-        })
-    );
+    // println!(
+    //     "{:?} nodes created",
+    //     tree_bitmap.stats.iter().fold(0, |mut acc, c| {
+    //         acc += c.created_nodes.iter().fold(0, |mut sum, l| {
+    //             sum += l.count;
+    //             sum
+    //         });
+    //         acc
+    //     })
+    // );
     println!("stride division  {:?}", TreeBitMap::<u32, PrefixAs>::STRIDES);
     for s in &tree_bitmap.stats {
         println!("{:?}", s);

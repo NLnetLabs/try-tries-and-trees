@@ -618,10 +618,29 @@ where
     <S as Stride>::PtrSize: Debug + Binary + Copy,
 {
     bit_id: u16,
+    serial: u32,
     ptrbitarr: <S as Stride>::PtrSize,
     pfxbitarr: S,
     pfx_vec: Vec<&'a Prefix<AF, T>>,
-    ptr_vec: Vec<SizedStrideNode<'a, AF, T>>,
+    // ptr_vec: Vec<SizedStrideNode<'a, AF, T>>,
+    ptr_vec: Vec<(u16, u32)>,
+}
+
+impl<'a, AF, T> Default for SizedStrideNode<'a, AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + Debug + PrimInt,
+{
+    fn default() -> Self {
+        SizedStrideNode::Stride3(TreeBitMapNode {
+            bit_id: 0,
+            serial: 100,
+            ptrbitarr: 0,
+            pfxbitarr: 0,
+            pfx_vec: vec![],
+            ptr_vec: vec![],
+        })
+    }
 }
 
 impl<'a, AF, T> Eq for SizedStrideNode<'a, AF, T>
@@ -802,12 +821,24 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TreeBitMapNode")
-            .field("id", &self.bit_id)
+            .field("bit_id", &self.bit_id)
+            .field("serial", &self.serial)
             .field("ptrbitarr", &self.ptrbitarr)
             .field("pfxbitarr", &self.pfxbitarr)
             .field("ptr_vec", &self.ptr_vec)
             .finish()
     }
+}
+
+enum NewNodeOrIndex<'a, AF, T>
+where
+    T: Debug,
+    AF: AddressFamily + Debug + PrimInt,
+{
+    NewNode(SizedStrideNode<'a, AF, T>),
+    ExistingNode(u32),
+    NewPrefix,
+    ExistingPrefix,
 }
 
 impl<'a, AF, T, S> TreeBitMapNode<'a, AF, T, S>
@@ -825,20 +856,21 @@ where
     // - A pointer to the child node if it exists.
     // - A pointer to the newly created child node if it didn't exist.
     // - None if this is the last stride.
-    fn upsert(
+    fn upsert_child_node_at(
         self: &mut Self,
         nibble: u32,
         nibble_len: u8,
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
         is_last_stride: bool,
-    ) -> Option<(&mut SizedStrideNode<'a, AF, T>, bool)> {
+    ) -> NewNodeOrIndex<'a, AF, T> {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
-        let mut has_created_node = false;
+        let new_node: SizedStrideNode<'a, AF, T>;
+
         // println!("n {:b} nl {}", nibble, nibble_len);
 
         // Check that we're not at the last stride (pfx.len <= stride_end),
-        // Note that next_stride may have a value, but we still don't want to
+        // Note that next_stride may haxwve a value, but we still don't want to
         // continue, because we've exceeded the length of the prefix to
         // be inserted.
         // Also note that a nibble_len < S::BITS (a smaller than full nibble)
@@ -860,11 +892,11 @@ where
                 //     next_stride, self.ptrbitarr
                 // );
                 // println!("bit_id: {}", bit_pos.leading_zeros());
-                let new_node: SizedStrideNode<AF, T>;
                 match next_stride.unwrap() {
                     3_u8 => {
                         new_node = SizedStrideNode::Stride3(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride3::zero(),
                             pfx_vec: vec![],
@@ -874,6 +906,7 @@ where
                     4_u8 => {
                         new_node = SizedStrideNode::Stride4(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride4::zero(),
                             pfx_vec: vec![],
@@ -883,6 +916,7 @@ where
                     5_u8 => {
                         new_node = SizedStrideNode::Stride5(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: <Stride5 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride5::zero(),
                             pfx_vec: vec![],
@@ -892,6 +926,7 @@ where
                     6_u8 => {
                         new_node = SizedStrideNode::Stride6(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: <Stride6 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride6::zero(),
                             pfx_vec: vec![],
@@ -901,6 +936,7 @@ where
                     7_u8 => {
                         new_node = SizedStrideNode::Stride7(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: 0_u128,
                             pfxbitarr: U256(0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -910,6 +946,7 @@ where
                     8_u8 => {
                         new_node = SizedStrideNode::Stride8(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
+                            serial: 0,
                             ptrbitarr: U256(0_u128, 0_u128),
                             pfxbitarr: U512(0_u128, 0_u128, 0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -921,9 +958,13 @@ where
                     }
                 };
 
-                self.ptr_vec.push(new_node);
-                self.ptr_vec.sort();
-                has_created_node = true;
+                // self.ptr_vec.push(new_node);
+                // self.ptr_vec.sort();
+                // let mut i = None;
+                // if self.ptr_vec.len() > S::get_ptr_index(self.ptrbitarr, nibble) {
+                //     i = Some(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1);
+                // }
+                return NewNodeOrIndex::NewNode(new_node);
             }
         } else {
             // only at the last stride do we create the bit in the prefix bitmap,
@@ -938,8 +979,9 @@ where
                 self.pfx_vec.push(pfx);
                 self.pfx_vec.sort();
                 // println!("{:?}", self.pfx_vec);
+                return NewNodeOrIndex::NewPrefix;
             }
-            return None;
+            return NewNodeOrIndex::ExistingPrefix;
         }
 
         // println!("__bit_pos__: {:?}", bit_pos);
@@ -955,21 +997,26 @@ where
         // );
         // // println!("{}", next_index);
         // println!("{:?}", self.ptr_vec);
-        // println!("?? {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
-        Some((
-            &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
-            has_created_node,
-        ))
+
+        // &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
+        // println!("existing node.");
+        // println!("{:?}", self.ptr_vec);
+        // println!("ptrbitarr: {:?}", self.ptrbitarr);
+        // println!("nib: {:?}", nibble);
+        // println!("index: {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
+        // println!("{:#?}", self);
+        NewNodeOrIndex::ExistingNode(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1)
     }
 
-    fn search<'b>(
+    fn search_stride_at<'b>(
         self: &Self,
         search_pfx: &Prefix<AF, NoMeta>,
         mut nibble: u32,
         nibble_len: u8,
         start_bit: u8,
+        // found_pfx: &'b mut Vec<&'a Prefix<AF, T>>,
         found_pfx: &'b mut Vec<&'a Prefix<AF, T>>,
-    ) -> Option<&SizedStrideNode<'a, AF, T>> {
+    ) -> Option<u32> {
         let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
 
         for n_l in 1..(nibble_len + 1) {
@@ -1027,7 +1074,7 @@ where
             return None;
         }
 
-        Some(&self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
+        Some(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1)
     }
 }
 
@@ -1036,8 +1083,9 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
-    root: SizedStrideNode<'a, AF, T>,
+    // root: SizedStrideNode<'a, AF, T>,
     pub stats: Vec<StrideStats>,
+    pub nodes: Vec<SizedStrideNode<'a, AF, T>>,
 }
 
 impl<'a, AF, T> TreeBitMap<'a, AF, T>
@@ -1076,6 +1124,7 @@ where
             3 => {
                 node = SizedStrideNode::Stride3(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1086,6 +1135,7 @@ where
             4 => {
                 node = SizedStrideNode::Stride4(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1096,6 +1146,7 @@ where
             5 => {
                 node = SizedStrideNode::Stride5(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1106,6 +1157,7 @@ where
             6 => {
                 node = SizedStrideNode::Stride6(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1116,6 +1168,7 @@ where
             7 => {
                 node = SizedStrideNode::Stride7(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: U256(0, 0),
                     ptr_vec: vec![],
@@ -1126,6 +1179,7 @@ where
             8 => {
                 node = SizedStrideNode::Stride8(TreeBitMapNode {
                     bit_id: 0,
+                    serial: 0,
                     ptrbitarr: U256(0, 0),
                     pfxbitarr: U512(0, 0, 0, 0),
                     ptr_vec: vec![],
@@ -1138,7 +1192,12 @@ where
             }
         };
 
-        TreeBitMap { root: node, stats: stride_stats }
+        TreeBitMap {
+            // root: node,
+            stats: stride_stats,
+            nodes: vec![node],
+            // prefixes: vec![],
+        }
     }
 
     // Partition for stride 4
@@ -1179,7 +1238,9 @@ where
         // println!("             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 
         let mut stride_end: u8 = 0;
-        let mut node = &mut self.root;
+        let mut cur_i = 0;
+        let mut node = std::mem::take(&mut self.nodes[cur_i]);
+
         let mut level: u8 = 0;
         let mut strides = Self::STRIDES.iter().peekable();
         while let Some(stride) = strides.next() {
@@ -1194,114 +1255,321 @@ where
             let nibble = AF::get_nibble(pfx.net, stride_end - stride, nibble_len);
 
             // Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
+            let is_last_stride = pfx.len <= stride_end;
 
-            node = match node {
-                SizedStrideNode::Stride3(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[0].inc(level);
-                        }
-                        n
+            let (next_node_idx, cur_node) = match node {
+                SizedStrideNode::Stride3(mut current_node) => match current_node
+                    .upsert_child_node_at(nibble, nibble_len, pfx, strides.peek(), is_last_stride)
+                {
+                    NewNodeOrIndex::NewNode(n) => {
+                        self.stats[0].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride3(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride3(current_node),
+                        );
+                        // self.modify_node(&SizedStrideNode::Stride3(current_node));
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride3(current_node),
+                        );
+                        // let s = current_node.serial.clone();
+                        // self.store_prefix(s, pfx);
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride3(current_node),
+                        );
                         return;
                     }
                 },
-                SizedStrideNode::Stride4(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[1].inc(level);
-                        }
-                        n
+                SizedStrideNode::Stride4(mut current_node) => match current_node
+                    .upsert_child_node_at(
+                        nibble,
+                        nibble_len,
+                        pfx,
+                        // No, next_stride.is_none does *not* mean that it's the last stride
+                        // There may very well be a Some(next_stride), next_stride goes all the
+                        // way to the end of the length of the network address space (like 32 bits for IPv4 etc),
+                        // whereas the last stride stops at the end of the prefix length.
+                        // `is_last_stride` is an indicator for the upsert function to write the prefix in the
+                        // node's vec.
+                        strides.peek(),
+                        pfx.len <= stride_end,
+                    ) {
+                    NewNodeOrIndex::NewNode(n) => {
+                        self.stats[1].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride4(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride4(current_node),
+                        );
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride4(current_node),
+                        );
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride4(current_node),
+                        );
                         return;
                     }
                 },
-                SizedStrideNode::Stride5(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[2].inc(level);
-                        }
-                        n
+                SizedStrideNode::Stride5(mut current_node) => match current_node
+                    .upsert_child_node_at(
+                        nibble,
+                        nibble_len,
+                        pfx,
+                        strides.peek(),
+                        pfx.len <= stride_end,
+                    ) {
+                    NewNodeOrIndex::NewNode(n) => {
+                        self.stats[2].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride5(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride5(current_node),
+                        );
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride5(current_node),
+                        );
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride5(current_node),
+                        );
                         return;
                     }
                 },
-                SizedStrideNode::Stride6(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[3].inc(level);
-                        }
-                        n
+                SizedStrideNode::Stride6(mut current_node) => match current_node
+                    .upsert_child_node_at(
+                        nibble,
+                        nibble_len,
+                        pfx,
+                        strides.peek(),
+                        pfx.len <= stride_end,
+                    ) {
+                    NewNodeOrIndex::NewNode(n) => {
+                        self.stats[3].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride6(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride6(current_node),
+                        );
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride6(current_node),
+                        );
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride6(current_node),
+                        );
                         return;
                     }
                 },
-                SizedStrideNode::Stride7(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[4].inc(level);
-                        }
-                        n
+                SizedStrideNode::Stride7(mut current_node) => match current_node
+                    .upsert_child_node_at(
+                        nibble,
+                        nibble_len,
+                        pfx,
+                        strides.peek(),
+                        pfx.len <= stride_end,
+                    ) {
+                    NewNodeOrIndex::NewNode(n) => {
+                        self.stats[4].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride7(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride7(current_node),
+                        );
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride7(current_node),
+                        );
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride7(current_node),
+                        );
                         return;
                     }
                 },
-                SizedStrideNode::Stride8(current_node) => match current_node.upsert(
-                    nibble,
-                    nibble_len,
-                    pfx,
-                    strides.peek(),
-                    pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
-                        if has_created_node {
-                            self.stats[5].inc(level);
-                        }
-                        n
+                SizedStrideNode::Stride8(mut current_node) => match current_node
+                    .upsert_child_node_at(
+                        nibble,
+                        nibble_len,
+                        pfx,
+                        strides.peek(),
+                        pfx.len <= stride_end,
+                    ) {
+                    NewNodeOrIndex::NewNode(n) => {
+                        // self.modify_node(&n);
+                        self.stats[5].inc(level);
+                        let nn = self.store_node(current_node, n);
+                        (nn.0, Some(SizedStrideNode::Stride8(nn.1)))
                     }
-                    None => {
+                    NewNodeOrIndex::ExistingNode(i) => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride8(current_node),
+                        );
+                        (i, None)
+                    }
+                    NewNodeOrIndex::NewPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride8(current_node),
+                        );
+                        return;
+                    }
+                    NewNodeOrIndex::ExistingPrefix => {
+                        let _default_val = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride8(current_node),
+                        );
                         return;
                     }
                 },
             };
+            // node = self.retrieve_node_mut(node_idx).unwrap();
+            if cur_node.is_some() {
+                let _prev_value =
+                    std::mem::replace(&mut self.nodes[cur_i as usize], cur_node.unwrap());
+            }
 
+            node = std::mem::take(&mut self.nodes[next_node_idx as usize]);
+            cur_i = next_node_idx as usize;
             level += 1;
         }
+    }
+
+    pub fn store_node<S>(
+        &mut self,
+        mut current_node: TreeBitMapNode<'a, AF, T, S>,
+        next_node: SizedStrideNode<'a, AF, T>,
+    ) -> (u32, TreeBitMapNode<'a, AF, T, S>)
+    where
+        S: Stride,
+        <S as Stride>::PtrSize: Debug + Binary + Copy,
+    {
+        let id = self.nodes.len() as u32;
+        match &next_node {
+            SizedStrideNode::Stride3(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+            SizedStrideNode::Stride4(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+            SizedStrideNode::Stride5(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+            SizedStrideNode::Stride6(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+            SizedStrideNode::Stride7(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+            SizedStrideNode::Stride8(n) => {
+                current_node.ptr_vec.push((n.bit_id, id));
+                current_node.ptr_vec.sort();
+            }
+        };
+
+        self.nodes.push(next_node);
+        assert!(self.nodes.len() == (id + 1) as usize);
+        (id, current_node)
+    }
+
+    
+
+    // pub fn store_prefix(&mut self, node_serial: u32, prefix: Prefix<AF, T>) -> u32 {
+    //     let id = self.prefixes.len() as u32;
+    //     self.prefixes.push(prefix);
+    //     let n = &mut self.nodes[node_serial as usize];
+    //     match n {
+    //         SizedStrideNode::Stride3(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //         SizedStrideNode::Stride4(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //         SizedStrideNode::Stride5(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //         SizedStrideNode::Stride6(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //         SizedStrideNode::Stride7(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //         SizedStrideNode::Stride8(n) => {
+    //             n.pfx_vec.push((n.bit_id, id));
+    //             n.pfx_vec.sort();
+    //         }
+    //     }
+
+    //     id
+    // }
+
+    pub fn retrieve_node(&self, index: u32) -> Option<&SizedStrideNode<'a, AF, T>> {
+        self.nodes.get(index as usize)
+    }
+
+    pub fn retrieve_node_mut(&mut self, index: u32) -> Option<&mut SizedStrideNode<'a, AF, T>> {
+        Some(&mut self.nodes[index as usize])
     }
 
     pub fn match_longest_prefix(
@@ -1311,7 +1579,7 @@ where
     ) -> Vec<&'a Prefix<AF, T>> {
         let mut stride_end = 0;
         let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
-        let mut node = &self.root;
+        let mut node = &self.nodes[0];
         // println!("");
         // println!("{:?}", search_pfx);
         // println!("             0   4   8   12  16  20  24  28  32");
@@ -1351,7 +1619,7 @@ where
             match node {
                 // nibble, nibble_len, pfx,
                 SizedStrideNode::Stride3(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1359,7 +1627,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
@@ -1367,7 +1635,7 @@ where
                     }
                 }
                 SizedStrideNode::Stride4(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1375,7 +1643,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
@@ -1383,7 +1651,7 @@ where
                     }
                 }
                 SizedStrideNode::Stride5(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1391,7 +1659,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
@@ -1399,7 +1667,7 @@ where
                     }
                 }
                 SizedStrideNode::Stride6(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1407,7 +1675,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
@@ -1415,7 +1683,7 @@ where
                     }
                 }
                 SizedStrideNode::Stride7(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1423,7 +1691,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
@@ -1431,7 +1699,7 @@ where
                     }
                 }
                 SizedStrideNode::Stride8(current_node) => {
-                    match current_node.search(
+                    match current_node.search_stride_at(
                         search_pfx,
                         nibble,
                         nibble_len,
@@ -1439,7 +1707,7 @@ where
                         &mut found_pfx,
                     ) {
                         Some(n) => {
-                            node = n;
+                            node = &self.nodes[n as usize];
                         }
                         None => {
                             return found_pfx;
