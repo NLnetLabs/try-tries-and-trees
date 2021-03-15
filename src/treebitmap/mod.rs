@@ -1254,33 +1254,33 @@ where
 
             let nibble = AF::get_nibble(pfx.net, stride_end - stride, nibble_len);
 
-            // Some(&mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)])
             let is_last_stride = pfx.len <= stride_end;
 
-            let (next_node_idx, cur_node) = match node {
+            let next_node_idx = match node {
                 SizedStrideNode::Stride3(mut current_node) => match current_node
                     .upsert_child_node_at(nibble, nibble_len, pfx, strides.peek(), is_last_stride)
                 {
                     NewNodeOrIndex::NewNode(n) => {
                         self.stats[0].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride3(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride3(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride3(current_node),
                         );
-                        // self.modify_node(&SizedStrideNode::Stride3(current_node));
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride3(current_node),
                         );
-                        // let s = current_node.serial.clone();
-                        // self.store_prefix(s, pfx);
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
@@ -1308,14 +1308,18 @@ where
                     NewNodeOrIndex::NewNode(n) => {
                         self.stats[1].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride4(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride4(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride4(current_node),
                         );
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
@@ -1343,14 +1347,18 @@ where
                     NewNodeOrIndex::NewNode(n) => {
                         self.stats[2].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride5(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride5(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride5(current_node),
                         );
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
@@ -1378,14 +1386,18 @@ where
                     NewNodeOrIndex::NewNode(n) => {
                         self.stats[3].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride6(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride6(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride6(current_node),
                         );
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
@@ -1413,14 +1425,18 @@ where
                     NewNodeOrIndex::NewNode(n) => {
                         self.stats[4].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride7(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride7(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride7(current_node),
                         );
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
@@ -1446,17 +1462,20 @@ where
                         pfx.len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n) => {
-                        // self.modify_node(&n);
                         self.stats[5].inc(level);
                         let nn = self.store_node(current_node, n);
-                        (nn.0, Some(SizedStrideNode::Stride8(nn.1)))
+                        let _prev_value = std::mem::replace(
+                            &mut self.nodes[cur_i as usize],
+                            SizedStrideNode::Stride8(nn.1),
+                        );
+                        nn.0
                     }
                     NewNodeOrIndex::ExistingNode(i) => {
                         let _default_val = std::mem::replace(
                             &mut self.nodes[cur_i as usize],
                             SizedStrideNode::Stride8(current_node),
                         );
-                        (i, None)
+                        i
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let _default_val = std::mem::replace(
@@ -1475,10 +1494,10 @@ where
                 },
             };
             // node = self.retrieve_node_mut(node_idx).unwrap();
-            if cur_node.is_some() {
-                let _prev_value =
-                    std::mem::replace(&mut self.nodes[cur_i as usize], cur_node.unwrap());
-            }
+            // if cur_node.is_some() {
+            //     let _prev_value =
+            //         std::mem::replace(&mut self.nodes[cur_i as usize], cur_node.unwrap());
+            // }
 
             node = std::mem::take(&mut self.nodes[next_node_idx as usize]);
             cur_i = next_node_idx as usize;
@@ -1527,8 +1546,6 @@ where
         assert!(self.nodes.len() == (id + 1) as usize);
         (id, current_node)
     }
-
-    
 
     // pub fn store_prefix(&mut self, node_serial: u32, prefix: Prefix<AF, T>) -> u32 {
     //     let id = self.prefixes.len() as u32;
