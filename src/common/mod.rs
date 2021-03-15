@@ -53,7 +53,7 @@ where
     }
 }
 
-pub trait AddressFamily {
+pub trait AddressFamily: Debug + PrimInt {
     const BITMASK: Self;
     const BITS: u8;
     fn fmt_net(net: Self) -> String;
