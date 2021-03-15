@@ -54,6 +54,7 @@ fn main() {
         tree_bitmap.insert(pfx);
     }
 
+    println!("prefix vec size {}", tree_bitmap.prefixes.len());
     println!("finished building tree...");
     // println!(
     //     "{:?} nodes created",
