@@ -64,7 +64,7 @@ fn main() {
         tree_bitmap.insert(pfx);
     }
     println!("------ end of inserts\n");
-    // println!("{:#?}", tree_bitmap.nodes);
+    println!("{:#?}", tree_bitmap.prefixes);
 
     // println!("pfxbitarr: {:032b}", tree_bitmap.0.pfxbitarr);
 
