@@ -59,7 +59,7 @@ fn main() {
         Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(1, 0, 128, 0).into(), 24),
     ];
 
-    for pfx in pfxs.iter() {
+    for pfx in pfxs.into_iter() {
         // println!("insert {:?}", pfx);
         tree_bitmap.insert(pfx);
     }

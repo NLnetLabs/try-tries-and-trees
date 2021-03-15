@@ -50,7 +50,7 @@ fn main() {
         process::exit(1);
     }
     println!("finished loading {} prefixes...", pfxs.len());
-    for pfx in pfxs.iter() {
+    for pfx in pfxs.into_iter() {
         tree_bitmap.insert(pfx);
     }
 
