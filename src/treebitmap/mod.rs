@@ -483,7 +483,7 @@ impl Stride for Stride8 {
 
             // if we move more than 384 bits to the right,
             // all of bitmap.[1,2,3] will be shifted out of sight,
-            // so we only have to count bitmap.0 zeroes than (after) shifting of course).
+            // so we only have to count bitmap.0 zeroes then (after shifting of course).
             n => (bitmap.0 >> n).count_ones() as usize - 1,
         }
     }
@@ -612,12 +612,17 @@ where
     AF: AddressFamily,
 {
     bit_id: u16,
-    serial: u32,
     ptrbitarr: <S as Stride>::PtrSize,
     pfxbitarr: S,
-    // pfx_vec: Vec<&'a Prefix<AF, T>>,
+    // The vec of prefixes hosted by this node
+    //, referenced by (bit_id, global prefix index)
+    // We need the AF typed value to sort the vec
+    // that is stored in the node.
     pfx_vec: Vec<(AF, u32)>,
-    // ptr_vec: Vec<SizedStrideNode<'a, AF, T>>,
+    // The vec of child nodes hosted by this
+    // node, referenced by (bit_id, global vec index)
+    // We need the u16 (bit_id) to sort the
+    // vec that's stored in the node.
     ptr_vec: Vec<(u16, u32)>,
 }
 
@@ -628,7 +633,6 @@ where
     fn default() -> Self {
         SizedStrideNode::Stride3(TreeBitMapNode {
             bit_id: 0,
-            serial: 100,
             ptrbitarr: 0,
             pfxbitarr: 0,
             pfx_vec: vec![],
@@ -807,7 +811,6 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TreeBitMapNode")
             .field("bit_id", &self.bit_id)
-            .field("serial", &self.serial)
             .field("ptrbitarr", &self.ptrbitarr)
             .field("pfxbitarr", &self.pfxbitarr)
             .field("ptr_vec", &self.ptr_vec)
@@ -878,7 +881,6 @@ where
                     3_u8 => {
                         new_node = SizedStrideNode::Stride3(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride3::zero(),
                             pfx_vec: vec![],
@@ -888,7 +890,6 @@ where
                     4_u8 => {
                         new_node = SizedStrideNode::Stride4(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride4::zero(),
                             pfx_vec: vec![],
@@ -898,7 +899,6 @@ where
                     5_u8 => {
                         new_node = SizedStrideNode::Stride5(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: <Stride5 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride5::zero(),
                             pfx_vec: vec![],
@@ -908,7 +908,6 @@ where
                     6_u8 => {
                         new_node = SizedStrideNode::Stride6(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: <Stride6 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride6::zero(),
                             pfx_vec: vec![],
@@ -918,7 +917,6 @@ where
                     7_u8 => {
                         new_node = SizedStrideNode::Stride7(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: 0_u128,
                             pfxbitarr: U256(0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -928,7 +926,6 @@ where
                     8_u8 => {
                         new_node = SizedStrideNode::Stride8(TreeBitMapNode {
                             bit_id: bit_pos.leading_zeros() as u16,
-                            serial: 0,
                             ptrbitarr: U256(0_u128, 0_u128),
                             pfxbitarr: U512(0_u128, 0_u128, 0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -1070,7 +1067,8 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
-    pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
+    // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
+    pub const STRIDES: [u8; 4] = [8; 4];
 
     //    const STRIDES_SEQ: [SizedStride; 7] = [
     //         SizedStride::Stride7,
@@ -1101,7 +1099,6 @@ where
             3 => {
                 node = SizedStrideNode::Stride3(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1112,7 +1109,6 @@ where
             4 => {
                 node = SizedStrideNode::Stride4(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1123,7 +1119,6 @@ where
             5 => {
                 node = SizedStrideNode::Stride5(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1134,7 +1129,6 @@ where
             6 => {
                 node = SizedStrideNode::Stride6(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1145,7 +1139,6 @@ where
             7 => {
                 node = SizedStrideNode::Stride7(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: 0,
                     pfxbitarr: U256(0, 0),
                     ptr_vec: vec![],
@@ -1156,7 +1149,6 @@ where
             8 => {
                 node = SizedStrideNode::Stride8(TreeBitMapNode {
                     bit_id: 0,
-                    serial: 0,
                     ptrbitarr: U256(0, 0),
                     pfxbitarr: U512(0, 0, 0, 0),
                     ptr_vec: vec![],
@@ -1264,6 +1256,8 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
+                        println!("existing {:?}", pfx);
+
                         (None, SizedStrideNode::Stride3(current_node))
                     }
                 },
@@ -1303,7 +1297,8 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
+                        print!(". {:?}", pfx);
+                        println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride4(current_node))
                     }
@@ -1339,6 +1334,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
+                        println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride5(current_node))
                     }
@@ -1374,6 +1370,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
+                        println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride6(current_node))
                     }
@@ -1408,6 +1405,7 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
+                        println!("existing {:?}", pfx);
                         // print!(". {:?}", pfx);
                         (None, SizedStrideNode::Stride7(current_node))
                     }
@@ -1432,6 +1430,8 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
+                        println!("existing {:?}", pfx);
+
                         (None, SizedStrideNode::Stride8(current_node))
                     }
                     NewNodeOrIndex::NewPrefix => {
