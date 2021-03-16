@@ -1070,16 +1070,6 @@ where
     // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
     pub const STRIDES: [u8; 4] = [8; 4];
 
-    //    const STRIDES_SEQ: [SizedStride; 7] = [
-    //         SizedStride::Stride7,
-    //         SizedStride::Stride5,
-    //         SizedStride::Stride5,
-    //         SizedStride::Stride5,
-    //         SizedStride::Stride3,
-    //         SizedStride::Stride4,
-    //         SizedStride::Stride3,
-    //     ];
-
     pub fn new() -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
         assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
