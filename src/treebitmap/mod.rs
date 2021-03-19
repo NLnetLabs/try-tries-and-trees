@@ -1044,7 +1044,9 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
-    pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
+    // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
+    // pub const STRIDES: [u8; 4] = [8; 4];
+    pub const STRIDES: [u8; 8] = [4; 8];
 
     //    const STRIDES_SEQ: [SizedStride; 7] = [
     //         SizedStride::Stride7,
@@ -1137,7 +1139,10 @@ where
             }
         };
 
-        TreeBitMap { root: node, stats: stride_stats }
+        TreeBitMap {
+            root: node,
+            stats: stride_stats,
+        }
     }
 
     // Partition for stride 4
