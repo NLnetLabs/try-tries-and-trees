@@ -49,10 +49,15 @@ fn main() {
         process::exit(1);
     }
     println!("finished loading {} prefixes...", pfxs.len());
+    let start = std::time::Instant::now();
     for pfx in pfxs.iter() {
         trie.insert(&pfx);
     }
-    println!("finished building tree...");
+    let ready = std::time::Instant::now();
+    println!(
+        "finished building tree in {} msecs...",
+        ready.checked_duration_since(start).unwrap().as_millis()
+    );
 
     let mut shell = Shell::new(trie);
     shell.new_command("s", "search the RIB", 1, |io, trie, s| {
