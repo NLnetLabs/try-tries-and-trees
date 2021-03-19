@@ -2,6 +2,7 @@ use crate::common::{AddressFamily, NoMeta, Prefix};
 use num::PrimInt;
 use std::cmp::Ordering;
 use std::fmt::{Binary, Debug};
+
 // pub struct BitMap8stride(u8, 8);
 #[derive(Copy, Clone)]
 pub struct U256(u128, u128);
@@ -1189,7 +1190,9 @@ where
     // 5 - 5 - 5 - 4 - 4 - [4] - 5
     // startpos (2 ^ nibble length) - 1 + nibble as usize
 
-    pub fn insert(&mut self, pfx: Prefix<AF, T>) {
+    // return value is true if the prefix was actually added to the tree,
+    // and false if it was already created.
+    pub fn insert(&mut self, pfx: Prefix<AF, T>) -> bool {
         // println!("");
         // println!("{:?}", pfx);
         // println!("             0   4   8   12  16  20  24  28  32  36  40  44  48  52  56  60  64  68  72  76  80  84  88  92  96 100 104 108 112 116 120 124 128");
@@ -1242,11 +1245,11 @@ where
                             SizedStrideNode::Stride3(current_node),
                         );
                         // (None, SizedStrideNode::Stride3(current_node))
-                        return;
+                        return true;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!("E");
 
                         (None, SizedStrideNode::Stride3(current_node))
                     }
@@ -1284,11 +1287,11 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride4(current_node),
                         );
-                        return;
+                        return true;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!(". {:?}", pfx);
+                        // print!("E");
 
                         (None, SizedStrideNode::Stride4(current_node))
                     }
@@ -1320,11 +1323,11 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride5(current_node),
                         );
-                        return;
+                        return true;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!("E");
 
                         (None, SizedStrideNode::Stride5(current_node))
                     }
@@ -1356,11 +1359,11 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride6(current_node),
                         );
-                        return;
+                        return true;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!("E");
 
                         (None, SizedStrideNode::Stride6(current_node))
                     }
@@ -1392,10 +1395,10 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride7(current_node),
                         );
-                        return;
+                        return true;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        println!("existing {:?}", pfx);
+                        // print!("E");
                         // print!(". {:?}", pfx);
                         (None, SizedStrideNode::Stride7(current_node))
                     }
@@ -1420,7 +1423,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!("E");
 
                         (None, SizedStrideNode::Stride8(current_node))
                     }
@@ -1434,7 +1437,7 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride8(current_node),
                         );
-                        return;
+                        return true;
                     }
                 },
             };
@@ -1446,9 +1449,11 @@ where
                 cur_i = i;
                 level += 1;
             } else {
-                return;
+                return false;
             }
         }
+
+        return false;
     }
 
     pub fn store_node(&mut self, next_node: SizedStrideNode<AF>) -> u32 {
