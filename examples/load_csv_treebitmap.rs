@@ -50,11 +50,17 @@ fn main() {
         process::exit(1);
     }
     println!("finished loading {} prefixes...", pfxs.len());
+
+    let start = std::time::Instant::now();
     for pfx in pfxs.iter() {
         tree_bitmap.insert(pfx);
     }
+    let ready = std::time::Instant::now();
+    println!(
+        "finished building tree in {} msecs...",
+        ready.checked_duration_since(start).unwrap().as_millis()
+    );
 
-    println!("finished building tree...");
     println!(
         "{:?} nodes created",
         tree_bitmap.stats.iter().fold(0, |mut acc, c| {
