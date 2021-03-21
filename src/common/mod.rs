@@ -105,7 +105,7 @@ where
 {
     pub net: AF,
     pub len: u8,
-    meta: Option<T>,
+    pub meta: Option<T>,
 }
 
 impl<T, AF> Prefix<AF, T>
