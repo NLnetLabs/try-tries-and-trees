@@ -73,8 +73,8 @@ fn main() {
             32,
             PrefixAs(100),
         ),
-        // Prefix4WithAs::new_with_meta(std::net::Ipv4Addr::new(0, 0, 0, 0).into(), 0, PrefixAs(21)),
-        // Prefix4WithAs::new_with_meta(std::net::Ipv4Addr::new(0, 0, 0, 0).into(), 1, PrefixAs(21)),
+        Prefix4WithAs::new_with_meta(std::net::Ipv4Addr::new(0, 0, 0, 0).into(), 0, PrefixAs(21)),
+        Prefix4WithAs::new_with_meta(std::net::Ipv4Addr::new(0, 0, 0, 0).into(), 1, PrefixAs(21)),
     ];
 
     for pfx in pfxs.iter() {

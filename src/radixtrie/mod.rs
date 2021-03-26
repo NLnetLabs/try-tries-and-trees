@@ -442,66 +442,46 @@ where
         &self,
         search_pfx: &Prefix<AF, NoMeta>,
     ) -> Option<&'a Prefix<AF, T>> {
-        let mut cursor = &self.0;
+        let mut cursor = Some(&self.0);
         let mut match_pfx: Option<&'a Prefix<AF, T>> = None;
         let zero: AF = num::zero();
 
-        // let mut i = cursor.bit_pos;
-        
-        let mut next_pos = search_pfx.net << cursor.bit_pos as usize;
-        // for i in 0..(search_pfx.len + 1) {
+        let mut next_pos = search_pfx.net << cursor.unwrap().bit_pos as usize;
         loop {
-            print!("*bp{}", cursor.bit_pos);
-            println!("next pos {:032b}", next_pos);
-            // if let Some(found_pfx) = cursor.prefix {
-            //     match_pfx = Some(found_pfx);
-            //     // build_pfx = cursor_pfx;
-            //     // match_len = i;
-            //     // let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
-            //     println!(
-            //         "less-specific: {}/{} with {:?}",
-            //         // AF::fmt_net(cursor_pfx << shift).as_str(),
-            //         // match_len,
-            //         found_pfx.meta
-            //     );
-            // }
+            print!("*bp{}", cursor.unwrap().bit_pos);
+            let bit_id_match = (search_pfx.net
+                ^ (cursor.unwrap().bit_id << (AF::BITS - cursor.unwrap().bit_pos) as usize))
+                .leading_zeros()
+                >= cursor.unwrap().bit_pos as u32;
+          
+
             match next_pos & AF::BITMASK {
-                b if b == zero => {
+                b if b == zero && bit_id_match => {
                     print!("l");
-                    if cursor.left.is_some() {
-                        cursor = cursor.left.as_deref().unwrap();
-                        // cursor_pfx = cursor_pfx << num::one();
-                        if cursor.prefix.is_some() {
-                            println!("L {} less specific : {:?}", cursor.bit_pos, cursor.prefix);
-                            match_pfx = cursor.prefix;
-                        }
-                    } else {
-                        print!("- ");
-                        break;
-                    }
+                    cursor = cursor.and_then(|c| c.left.as_deref()).and_then(|c| {
+                        println!("L {} less specific : {:?}", c.bit_pos, c.prefix);
+                        match_pfx = c.prefix;
+                        Some(c)
+                    });
+                }   
+                _ if bit_id_match => {
+                    print!("r");
+                    cursor = cursor.and_then(|c| c.right.as_deref()).and_then(|c| {
+                        println!("R {} less specific : {:?}", c.bit_pos, c.prefix);
+                        match_pfx = c.prefix;
+                        Some(c)
+                    });
                 }
                 _ => {
-                    print!("r");
-                    if cursor.right.is_some() {
-                        cursor = cursor.right.as_deref().unwrap();
-                        // cursor_pfx = cursor_pfx << num::one() | num::one();
-                        if cursor.prefix.is_some() {
-                            println!("R {} less specific : {:?}", cursor.bit_pos, cursor.prefix);
-                            match_pfx = cursor.prefix;
-                        }
-                    } else {
-                        print!("- ");
-                        break;
-                    }
+                    break;
                 }
             }
-            next_pos = search_pfx.net << cursor.bit_pos as usize;
+            if let Some(c) = cursor {
+                next_pos = search_pfx.net << c.bit_pos as usize;
+            } else {
+                break;
+            }
         }
-
-        // if match_len > 0 {
-        //     let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
-        //     println!("built prefix: {}/{}", build_pfx_net.as_str(), match_len);
-        // }
 
         match_pfx
     }
