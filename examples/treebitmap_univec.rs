@@ -1,5 +1,5 @@
 use trie::common::{Prefix, PrefixAs, NoMeta};
-use trie::treebitmap::{TreeBitMap};
+use trie::treebitmap_univec::TreeBitMap;
 type Prefix4<'a> = Prefix<u32, NoMeta>;
 
 fn main() {
