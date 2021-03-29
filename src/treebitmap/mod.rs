@@ -59,7 +59,7 @@ impl PartialOrd for U512 {
     }
 }
 
-pub trait Stride: Sized + Debug + Binary + Eq + PartialOrd + PartialEq + Debug + Copy {
+pub trait Stride: Sized + Debug + Binary + Eq + PartialOrd + PartialEq + Copy {
     type PtrSize;
     const BITS: u8;
     const STRIDE_LEN: u8;
