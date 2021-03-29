@@ -1,6 +1,6 @@
 # try-tries-and-trees
 
-This is the experimental Tries and Trees IP Lookup repository.
+This is the ~~experimental~~ research Tries and Trees IP Lookup repository.
 
 Currently we have for you:
 
