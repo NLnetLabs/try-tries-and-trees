@@ -56,7 +56,6 @@ where
     pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
         let mut cursor = &mut self.0;
 
-        // let built_prefix: AF = num::zero();
         let zero = num::zero();
 
         loop {
@@ -178,8 +177,6 @@ where
                                 // left or the right of our new intermediary node.
                                 // We'll check the bit at (intermediary_node.bit_pos + 1),
                                 // since that's the bit where they start to diverge.
-                                // let ii = pfx.net
-                                //     ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize);
                                 let ident = next_node.bit_id
                                     << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
                                         as usize;
