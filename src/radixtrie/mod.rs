@@ -67,248 +67,127 @@ where
                 break;
             }
 
-            match (pfx.net << cursor.bit_pos as usize) & AF::BITMASK {
-                // Inspected bit is ZERO, this node should go to the LEFT
-                b if b == zero => {
-                    match &cursor.left {
-                        // No node on the left, so we can create a new leaf node
-                        // with our prefix length and the prefix.
-                        None => {
-                            let mut new_leaf = RadixTrieNode::new(Some(&pfx));
-                            new_leaf.bit_pos = pfx.len;
-                            new_leaf.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                            cursor.left = Some(Box::new(new_leaf));
-                            break;
-                        }
-                        // There is a node on the left side, we need to see if that node's
-                        // bit_id matches our bit_id.
-                        Some(next_node) => {
-                            // The prefix is aligned with the next_node, move on
-                            if pfx.net >> (AF::BITS - next_node.bit_pos) as usize
-                                == next_node.bit_id
-                            {
-                            } else {
-                                // figure out where a possible new intermediary node should be placed
-                                // , by comparing the new intermediary node's prefix with the next
-                                // node's bit_id.
-                                // ex.:
-                                // new intem. node pfx  : 1010 0000 0000 0000 0000 / 24 (len)
-                                // next node bit_id     : 0000 0000 0000 0000 0100 / 3 (bit_pos)
-                                // so, we left shift the next node's bit_id to match the length of the
-                                // next_node's bit_pos and then XOR:
-                                // 1010 0000 0000 0000 0000 ^
-                                // 1000 0000 0000 0000 0000
-                                // ------------------------ =
-                                // 0010 0000 0000 0000 0000
-                                //
-                                // then the number of leading zeros (2) marks the number of bits that
-                                // are the same in both bitmaps for the given bit_pos size.
-                                // This will be the bit_pos size of the intermediary node (nn)
-                                let in_bit_pos = (pfx.net
-                                    ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize))
-                                    .leading_zeros()
-                                    as u8;
-                                let in_bit_id = pfx.net >> (AF::BITS - in_bit_pos) as usize;
+            let mut next_cursor = match (pfx.net << cursor.bit_pos as usize) & AF::BITMASK {
+                b if b == zero => &mut cursor.left,
+                _ => &mut cursor.right,
+            };
 
-                                // Only create a new intermediary node if it does not overshoot
-                                // the existing downstream node (its intended child).
-                                let mut intermediary_node = RadixTrieNode::new(None);
-                                intermediary_node.bit_pos = in_bit_pos;
-                                intermediary_node.bit_id = in_bit_id;
-
-                                // If we've reached the pfx.len in the intermediary_node,
-                                // that means that it will have to host a prefix, (so
-                                // it'll become a regular internal node).
-                                // Also we should break out of the loop after inserting
-                                // it into the trie.
-                                let mut done = false;
-                                if intermediary_node.bit_pos == pfx.len {
-                                    intermediary_node.prefix = Some(&pfx);
-                                    done = true;
-                                }
-
-                                // Now, check if we should attach the next_node to the
-                                // left or the right of our new intermediary node.
-                                // We'll check the bit at (intermediary_node.bit_pos + 1),
-                                // since that's the bit where they start to diverge.
-                                let ident = next_node.bit_id
-                                    << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
-                                        as usize;
-                                let l_r_bit_next_node = ident.leading_zeros() == 0;
-
-                                if in_bit_pos < pfx.len {
-                                    match l_r_bit_next_node {
-                                        // Insert the intermediary node in between the cursor
-                                        // and its left-hand child.
-                                        // Our prefix to be inserted goes on the right, so move
-                                        // the existing one to the left.
-                                        true => {
-                                            // cursor is cut off at this point after this assignment!
-                                            intermediary_node.right =
-                                                std::mem::take(&mut cursor.left);
-                                            if !done {
-                                                let mut nn = RadixTrieNode::new(Some(&pfx));
-                                                nn.bit_pos = pfx.len;
-                                                nn.bit_id =
-                                                    pfx.net >> (AF::BITS - pfx.len) as usize;
-                                                intermediary_node.left = Some(Box::new(nn));
-                                                done = true;
-                                            }
-                                            // weld the cursor to the newly created intermediary node.
-                                            cursor.left = Some(Box::new(intermediary_node));
-                                        }
-                                        // Insert the intermediary node in between the cursor and its
-                                        // right hand child.
-                                        false => {
-                                            intermediary_node.left =
-                                                std::mem::take(&mut cursor.left);
-                                            if !done {
-                                                let mut nn = RadixTrieNode::new(Some(&pfx));
-                                                nn.bit_pos = pfx.len;
-                                                nn.bit_id =
-                                                    pfx.net >> (AF::BITS - pfx.len) as usize;
-                                                intermediary_node.right = Some(Box::new(nn));
-                                                done = true;
-                                            }
-                                            // weld the cursor to the newly created intermediary node.
-                                            cursor.left = Some(Box::new(intermediary_node));
-                                        }
-                                    }
-
-                                    if done {
-                                        break;
-                                    }
-                                }
-                                // we are overshooting our intended child, we have to go back to inserting
-                                // this final prefix node on cursor, not next_node.
-                                else {
-                                    match l_r_bit_next_node {
-                                        true => {
-                                            let mut nn = RadixTrieNode::new(Some(&pfx));
-                                            nn.right = std::mem::take(&mut cursor.left);
-                                            nn.bit_pos = pfx.len;
-                                            nn.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                                            cursor.left = Some(Box::new(nn));
-                                            break;
-                                        }
-                                        false => {
-                                            let mut nn = RadixTrieNode::new(Some(&pfx));
-                                            nn.left = std::mem::take(&mut cursor.left);
-                                            nn.bit_pos = pfx.len;
-                                            nn.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                                            cursor.left = Some(Box::new(nn));
-                                            break;
-                                        }
-                                    }
-                                }
-                            };
-                        }
-                    };
-                    cursor = cursor.left.as_deref_mut().unwrap();
+            match &next_cursor {
+                // No node in the direction we're heading, so we can create a new leaf node
+                // with our prefix length and the prefix.
+                None => {
+                    let mut new_leaf = RadixTrieNode::new(Some(&pfx));
+                    new_leaf.bit_pos = pfx.len;
+                    new_leaf.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
+                    *next_cursor = Some(Box::new(new_leaf));
+                    break;
                 }
-                _ => {
-                    match &cursor.right {
-                        None => {
-                            let mut nn = RadixTrieNode::new(Some(&pfx));
-                            nn.bit_pos = pfx.len;
-                            nn.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                            cursor.right = Some(Box::new(nn));
-                            break;
+                // There is a node on the left side, we need to see if that node's
+                // bit_id matches our bit_id.
+                Some(next_node) => {
+                    // The prefix is aligned with the next_node, move on
+                    if pfx.net >> (AF::BITS - next_node.bit_pos) as usize == next_node.bit_id {
+                    } else {
+                        // figure out where a possible new intermediary node should be placed
+                        // , by comparing the new intermediary node's prefix with the next
+                        // node's bit_id.
+                        // ex.:
+                        // new intem. node pfx  : 1010 0000 0000 0000 0000 / 24 (len)
+                        // next node bit_id     : 0000 0000 0000 0000 0100 / 3 (bit_pos)
+                        // so, we left shift the next node's bit_id to match the length of the
+                        // next_node's bit_pos and then XOR:
+                        // 1010 0000 0000 0000 0000 ^
+                        // 1000 0000 0000 0000 0000
+                        // ------------------------ =
+                        // 0010 0000 0000 0000 0000
+                        //
+                        // then the number of leading zeros (2) marks the number of bits that
+                        // are the same in both bitmaps for the given bit_pos size.
+                        // This will be the bit_pos size of the intermediary node (nn)
+                        let in_bit_pos = (pfx.net
+                            ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize))
+                            .leading_zeros() as u8;
+                        let in_bit_id = pfx.net >> (AF::BITS - in_bit_pos) as usize;
+
+                        // Only create a new intermediary node if it does not overshoot
+                        // the existing downstream node (its intended child).
+                        let mut intermediary_node = RadixTrieNode::new(None);
+                        intermediary_node.bit_pos = in_bit_pos;
+                        intermediary_node.bit_id = in_bit_id;
+
+                        // If we've reached the pfx.len in the intermediary_node,
+                        // that means that it will have to host a prefix, (so
+                        // it'll become a regular internal node).
+                        // Also we should break out of the loop after inserting
+                        // it into the trie.
+                        let mut done = false;
+                        if intermediary_node.bit_pos == pfx.len {
+                            intermediary_node.prefix = Some(&pfx);
+                            done = true;
                         }
-                        Some(next_node) => {
-                            if pfx.net >> (AF::BITS - next_node.bit_pos) as usize
-                                == next_node.bit_id
-                            {
-                            } else {
-                                let in_bit_pos = (pfx.net
-                                    ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize))
-                                    .leading_zeros()
-                                    as u8;
-                                let in_bit_id = pfx.net >> (AF::BITS - in_bit_pos) as usize;
 
-                                // Only create a new intermediary node if it does not overshoot,
-                                // the existing downstream node (its intended child).
-                                let mut intermediary_node = RadixTrieNode::new(None);
-                                intermediary_node.bit_pos = in_bit_pos;
-                                intermediary_node.bit_id = in_bit_id;
+                        // Now, check if we should attach the next_node to the
+                        // left or the right of our new intermediary node.
+                        // We'll check the bit at (intermediary_node.bit_pos + 1),
+                        // since that's the bit where they start to diverge.
+                        let l_r_bit_next_node = (next_node.bit_id
+                            << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
+                                as usize)
+                            .leading_zeros()
+                            == 0;
 
-                                let ident = next_node.bit_id
-                                    << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
-                                        as usize;
-                                let l_r_bit_next_node = ident.leading_zeros() == 0;
+                        let mut insert_node = RadixTrieNode::new(Some(&pfx));
 
-                                // If we've reached the pfx.len in the intermediary_node,
-                                // that means that it will have to host a prefix, (so
-                                // it'll become a regular internal node).
-                                // Also we should break out of the loop after inserting
-                                // it into the trie.
-                                let mut done = false;
-                                if intermediary_node.bit_pos == pfx.len {
-                                    intermediary_node.prefix = Some(&pfx);
-                                    done = true;
-                                }
+                        let (next_node, next_node_opp) = match l_r_bit_next_node {
+                            false => (&mut intermediary_node.left, &mut intermediary_node.right),
+                            true => (&mut intermediary_node.right, &mut intermediary_node.left),
+                        };
 
-                                if in_bit_pos < pfx.len {
-                                    match l_r_bit_next_node {
-                                        // Our prefix should go the right, so move the
-                                        // existing one to the left.
-                                        false => {
-                                            intermediary_node.left =
-                                                std::mem::take(&mut cursor.right);
-                                            if !done {
-                                                let mut nn = RadixTrieNode::new(Some(&pfx));
-                                                nn.bit_pos = pfx.len;
-                                                nn.bit_id =
-                                                    pfx.net >> (AF::BITS - pfx.len) as usize;
-                                                intermediary_node.right = Some(Box::new(nn));
-                                                done = true;
-                                            }
-                                            cursor.right = Some(Box::new(intermediary_node));
-                                        }
-                                        true => {
-                                            intermediary_node.right =
-                                                std::mem::take(&mut cursor.right);
-                                            if !done {
-                                                let mut nn = RadixTrieNode::new(Some(&pfx));
-
-                                                nn.bit_pos = pfx.len;
-                                                nn.bit_id =
-                                                    pfx.net >> (AF::BITS - pfx.len) as usize;
-                                                intermediary_node.left = Some(Box::new(nn));
-                                                done = true;
-                                            }
-                                            cursor.right = Some(Box::new(intermediary_node));
-                                        }
-                                    }
-                                } else {
-                                    match l_r_bit_next_node {
-                                        true => {
-                                            let mut nn = RadixTrieNode::new(Some(&pfx));
-                                            nn.bit_pos = pfx.len;
-                                            nn.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                                            nn.right = std::mem::take(&mut cursor.right);
-                                            cursor.right = Some(Box::new(nn));
-                                            break;
-                                        }
-                                        false => {
-                                            let mut nn = RadixTrieNode::new(Some(&pfx));
-                                            nn.bit_pos = pfx.len;
-                                            nn.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
-                                            nn.left = std::mem::take(&mut cursor.right);
-                                            cursor.right = Some(Box::new(nn));
-                                            break;
-                                        }
-                                    }
-                                }
-                                if done {
+                        // We are overshooting our intended child, we have to go back
+                        // to inserting this final prefix node on cursor, not next_node.
+                        if in_bit_pos >= pfx.len {
+                            match l_r_bit_next_node {
+                                true => {
+                                    // let mut nn = RadixTrieNode::new(Some(&pfx));
+                                    insert_node.right = std::mem::take(&mut next_cursor);
+                                    insert_node.bit_pos = pfx.len;
+                                    insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
+                                    *next_cursor = Some(Box::new(insert_node));
                                     break;
                                 }
-                            };
+                                false => {
+                                    // let mut nn = RadixTrieNode::new(Some(&pfx));
+                                    insert_node.left = std::mem::take(&mut next_cursor);
+                                    insert_node.bit_pos = pfx.len;
+                                    insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
+                                    *next_cursor = Some(Box::new(insert_node));
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Insert the intermediary node in between the cursor
+                            // and its [left|right] child.
+
+                            // cursor is cut off at this point after this assignment!
+                            *next_node = std::mem::take(&mut next_cursor);
+                            if !done {
+                                // let mut nn = RadixTrieNode::new(Some(&pfx));
+                                insert_node.bit_pos = pfx.len;
+                                insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
+                                *next_node_opp = Some(Box::new(insert_node));
+                                done = true;
+                            }
+                            // Weld the cursor to the newly created intermediary node.
+                            *next_cursor = Some(Box::new(intermediary_node));
+
+                            if done {
+                                break;
+                            }
                         }
                     };
-                    cursor = cursor.right.as_deref_mut().unwrap();
                 }
-            }
+            };
+            cursor = next_cursor.as_deref_mut().unwrap();
         }
     }
 
@@ -329,16 +208,26 @@ where
 
             match next_pos & AF::BITMASK {
                 b if b == zero && bit_id_match => {
-                    cursor = cursor.and_then(|c| c.left.as_deref()).and_then(|c| {
-                        match_pfx = c.prefix;
-                        Some(c)
-                    });
+                    cursor = cursor
+                        .and_then(|c| {
+                            match_pfx = c.prefix;
+                            c.left.as_deref()
+                        })
+                        .and_then(|c| {
+                            Some(c)
+                        });
+                    println!("{:?}", match_pfx);
                 }
                 _ if bit_id_match => {
-                    cursor = cursor.and_then(|c| c.right.as_deref()).and_then(|c| {
-                        match_pfx = c.prefix;
-                        Some(c)
-                    });
+                    cursor = cursor
+                        .and_then(|c| {
+                            match_pfx = c.prefix;
+                            c.right.as_deref()
+                        })
+                        .and_then(|c| {
+                            Some(c)
+                        });
+                    println!("{:?}", match_pfx);
                 }
                 _ => {
                     break;
