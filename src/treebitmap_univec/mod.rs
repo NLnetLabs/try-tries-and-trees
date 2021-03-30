@@ -359,7 +359,7 @@ impl Stride for Stride7 {
             // if we move more than 128 bits to the right,
             // all of bitmap.1 wil be shifted out of sight,
             // so we only have to count bitmap.0 zeroes than (after) shifting of course).
-            n => (bitmap.0 >> n).count_ones() as usize - 1,
+            n => (bitmap.0 >> (n - 128)).count_ones() as usize - 1,
         }
     }
 
@@ -473,18 +473,21 @@ impl Stride for Stride8 {
             n if n < 256 => {
                 bitmap.0.count_ones() as usize
                     + bitmap.1.count_ones() as usize
-                    + (bitmap.2 >> n).count_ones() as usize
+                    + (bitmap.2 >> (n - 128)).count_ones() as usize
                     - 1
             }
 
             n if n < 384 => {
-                bitmap.0.count_ones() as usize + (bitmap.1 >> n).count_ones() as usize - 1
+                bitmap.0.count_ones() as usize + (bitmap.1 >> (n - 256)).count_ones() as usize - 1
             }
 
             // if we move more than 384 bits to the right,
             // all of bitmap.[1,2,3] will be shifted out of sight,
             // so we only have to count bitmap.0 zeroes then (after shifting of course).
-            n => (bitmap.0 >> n).count_ones() as usize - 1,
+            n => {
+                print!("shr {}", n);
+                (bitmap.0 >> (n - 384)).count_ones() as usize - 1
+            }
         }
     }
 
@@ -502,7 +505,7 @@ impl Stride for Stride8 {
             // if we move more than 256 bits to the right,
             // all of bitmap.1 wil be shifted out of sight,
             // so we only have to count bitmap.0 zeroes than (after) shifting of course).
-            n => (bitmap.0 >> n).count_ones() as usize - 1,
+            n => (bitmap.0 >> (n - 128)).count_ones() as usize - 1,
         }
     }
 
@@ -1067,8 +1070,9 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
-    pub const STRIDES: [u8; 4] = [8; 4];
+    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
+    // pub const STRIDES: [u8; 4] = [8; 4];
+    // pub const STRIDES: [u8; 8] = [4; 8];
 
     pub fn new() -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
