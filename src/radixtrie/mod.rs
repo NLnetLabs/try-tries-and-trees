@@ -148,7 +148,6 @@ where
                         if in_bit_pos >= pfx.len {
                             match l_r_bit_next_node {
                                 true => {
-                                    // let mut nn = RadixTrieNode::new(Some(&pfx));
                                     insert_node.right = std::mem::take(&mut next_cursor);
                                     insert_node.bit_pos = pfx.len;
                                     insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
@@ -156,7 +155,6 @@ where
                                     break;
                                 }
                                 false => {
-                                    // let mut nn = RadixTrieNode::new(Some(&pfx));
                                     insert_node.left = std::mem::take(&mut next_cursor);
                                     insert_node.bit_pos = pfx.len;
                                     insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
