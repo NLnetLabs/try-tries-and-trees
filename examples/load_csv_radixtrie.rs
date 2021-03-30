@@ -1,7 +1,7 @@
-use std::fs::File;
+use std::env;
 use std::error::Error;
 use std::ffi::OsString;
-use std::env;
+use std::fs::File;
 use std::process;
 use trie::common::{NoMeta, Prefix, PrefixAs};
 use trie::radixtrie::RadixTrie;
@@ -64,9 +64,15 @@ fn main() {
     shell.new_command("s", "search the RIB", 1, |io, trie, s| {
         let s_pref: Vec<&str> = s[0].split("/").collect();
         let len = s_pref[1].parse::<u8>().unwrap();
-        let s_net: Vec<u8> = s_pref[0].split(".").map(|o| -> u8 { o.parse::<u8>().unwrap()}).collect();
-        let pfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(s_net[0],s_net[1],s_net[2],s_net[3]).into(), len);
-        let s_pfx =trie.match_longest_prefix(&pfx);
+        let s_net: Vec<u8> = s_pref[0]
+            .split(".")
+            .map(|o| -> u8 { o.parse::<u8>().unwrap() })
+            .collect();
+        let pfx = Prefix::<u32, NoMeta>::new(
+            std::net::Ipv4Addr::new(s_net[0], s_net[1], s_net[2], s_net[3]).into(),
+            len,
+        );
+        let s_pfx = trie.match_longest_prefix(&pfx);
         writeln!(io, "{:?}", s_pfx)?;
         Ok(())
     });
