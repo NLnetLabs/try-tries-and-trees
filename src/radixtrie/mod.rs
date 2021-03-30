@@ -236,7 +236,7 @@ where
                 }
             }
             if let Some(c) = cursor {
-                next_pos = search_pfx.net << c.bit_pos as usize;
+                next_pos = search_pfx.net << (c.bit_pos % AF::BITS) as usize;
 
                 // We've reached the length of the prefix, we're done
                 if c.bit_pos > search_pfx.len {
