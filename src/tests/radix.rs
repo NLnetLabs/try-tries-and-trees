@@ -57,19 +57,19 @@ mod test {
             // Prefix::<u32, PrefixAs>::new(0b0111_0111_1100_0000_0000_0000_0000_0000_u32, 14),
             // Prefix::<u32, PrefixAs>::new(0b1110_0000_0000_0000_0000_0000_0000_0000_u32, 4),
             Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 23),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 4),
             Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 16),
+            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 4),
             Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 10, 0).into(), 23),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 9, 0).into(), 24),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 0, 0).into(), 23),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(209, 0, 0, 0).into(), 16),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 9, 0).into(), 24),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 14, 0).into(), 23),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 14, 0).into(), 24),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 15, 0).into(), 24),
-            Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 10).into(), 32),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 9, 0).into(), 24),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 0, 0).into(), 23),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(209, 0, 0, 0).into(), 16),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 9, 0).into(), 24),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 24),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 14, 0).into(), 23),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 14, 0).into(), 24),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 15, 0).into(), 24),
+            // Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(193, 0, 10, 10).into(), 32),
             // Prefix::<u32, PrefixAs>::new(0b0011_0000_0000_0000_0000_0000_0000_0000_u32, 4),
             // Prefix::<u32, PrefixAs>::new(0b1000_0011_1000_1111_0000_0000_0000_0000_u32, 11),
             // Prefix::<u32, PrefixAs>::new(0b1000_0010_0101_0111_1111_1000_0000_0000_u32, 13),
@@ -100,7 +100,7 @@ mod test {
 
         assert_eq!(
             res,
-            &Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 16)
+            &Prefix::<u32, PrefixAs>::new(std::net::Ipv4Addr::new(192, 0, 0, 0).into(), 23)
         );
     }
 

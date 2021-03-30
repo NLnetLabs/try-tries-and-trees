@@ -55,6 +55,7 @@ fn main() {
         trie.insert(&pfx);
     }
     let ready = std::time::Instant::now();
+    println!("{:#?}", trie);
     println!(
         "finished building tree in {} msecs...",
         ready.checked_duration_since(start).unwrap().as_millis()
