@@ -85,8 +85,17 @@ where
                 // There is a node on the left side, we need to see if that node's
                 // bit_id matches our bit_id.
                 Some(next_node) => {
-                    // The prefix is aligned with the next_node, move on
-                    if pfx.net >> (AF::BITS - next_node.bit_pos) as usize == next_node.bit_id {
+                    // Take only the part of the next node that's within the size of the current
+                    // prefix to be inserted. So if the next_node is a more specific, than
+                    // we cut that off at the the pfx.len.
+                    let relevant_bit_pos = std::cmp::min(next_node.bit_pos, pfx.len);
+                    
+                    // Check if the to-be-inserted prefix is aligned  the next_node AND it's less 
+                    // specific that our to-be-inserted prefix. If so let's move on.
+                    if pfx.net >> (AF::BITS - relevant_bit_pos) as usize
+                        == (next_node.bit_id >> (next_node.bit_pos - relevant_bit_pos) as usize)
+                        && next_node.bit_pos < pfx.len
+                    {
                     } else {
                         // figure out where a possible new intermediary node should be placed
                         // , by comparing the new intermediary node's prefix with the next
@@ -104,9 +113,16 @@ where
                         // then the number of leading zeros (2) marks the number of bits that
                         // are the same in both bitmaps for the given bit_pos size.
                         // This will be the bit_pos size of the intermediary node (nn)
-                        let in_bit_pos = (pfx.net
-                            ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize))
-                            .leading_zeros() as u8;
+                        //
+                        // next_node might be a more specific of our to-be-inserted prefix,
+                        // (which would result in a in_bit_pos of AF::BITS), so only consider 
+                        // the parts that are common to both with the smallest length of both.
+                        let in_bit_pos = std::cmp::min(
+                            (pfx.net
+                                ^ (next_node.bit_id << (AF::BITS - next_node.bit_pos) as usize))
+                                .leading_zeros() as u8,
+                            pfx.len,
+                        );
                         let in_bit_id = pfx.net >> (AF::BITS - in_bit_pos) as usize;
 
                         // Only create a new intermediary node if it does not overshoot
