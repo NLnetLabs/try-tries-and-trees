@@ -90,8 +90,12 @@ where
                     // we cut that off at the the pfx.len.
                     let relevant_bit_pos = std::cmp::min(next_node.bit_pos, pfx.len);
                     
+                    if next_node.bit_pos == pfx.len && pfx.net >> (AF::BITS - pfx.len) as usize == next_node.bit_id {
+                        // This prefix already exists here, that's the end
+                        break;
+                    }
                     // Check if the to-be-inserted prefix is aligned  the next_node AND it's less 
-                    // specific that our to-be-inserted prefix. If so let's move on.
+                    // specific than our to-be-inserted prefix. If so let's move on.
                     if pfx.net >> (AF::BITS - relevant_bit_pos) as usize
                         == (next_node.bit_id >> (next_node.bit_pos - relevant_bit_pos) as usize)
                         && next_node.bit_pos < pfx.len
@@ -148,7 +152,7 @@ where
                         // since that's the bit where they start to diverge.
                         let l_r_bit_next_node = (next_node.bit_id
                             << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
-                                as usize)
+                                as usize) 
                             .leading_zeros()
                             == 0;
 
