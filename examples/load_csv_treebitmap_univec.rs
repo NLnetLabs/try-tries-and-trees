@@ -50,11 +50,20 @@ fn main() {
         process::exit(1);
     }
     println!("finished loading {} prefixes...", pfxs.len());
+    let start = std::time::Instant::now();
+
     for pfx in pfxs.into_iter() {
         tree_bitmap.insert(pfx);
     }
-
+    let ready = std::time::Instant::now();
+    // println!("{:#?}", trie);
+    println!(
+        "finished building tree in {} msecs...",
+        ready.checked_duration_since(start).unwrap().as_millis()
+    );
+    
     println!("prefix vec size {}", tree_bitmap.prefixes.len());
+    
     println!("finished building tree...");
     // println!(
     //     "{:?} nodes created",
@@ -66,6 +75,8 @@ fn main() {
     //         acc
     //     })
     // );
+
+    
     println!("stride division  {:?}", TreeBitMap::<u32, PrefixAs>::STRIDES);
     for s in &tree_bitmap.stats {
         println!("{:?}", s);
