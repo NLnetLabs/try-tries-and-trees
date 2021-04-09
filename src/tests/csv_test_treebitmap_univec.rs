@@ -98,7 +98,7 @@ mod test {
         println!(
             "{} lmp/sec",
             (inet_max as u16 * inet_max as u16 * len_max as u16) as f32
-                * ready.checked_duration_since(start).unwrap().as_secs_f32()
+                / ready.checked_duration_since(start).unwrap().as_secs_f32()
         );
     }
 }
