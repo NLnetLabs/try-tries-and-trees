@@ -485,7 +485,7 @@ impl Stride for Stride8 {
             // all of bitmap.[1,2,3] will be shifted out of sight,
             // so we only have to count bitmap.0 zeroes then (after shifting of course).
             n => {
-                print!("shr {}", n);
+                // print!("shr {}", n);
                 (bitmap.0 >> (n - 384)).count_ones() as usize - 1
             }
         }
@@ -1025,7 +1025,7 @@ where
             if self.pfxbitarr & bit_pos > S::zero() {
                 found_pfx.push(self.pfx_vec[S::get_pfx_index(self.pfxbitarr, nibble, n_l)]);
                 // println!("vec: {:?}", self.pfx_vec);
-                println!("found: {:?}", found_pfx);
+                // println!("found: {:?}", found_pfx);
             }
         }
 
@@ -1070,8 +1070,8 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
-    // pub const STRIDES: [u8; 4] = [8; 4];
+    // pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
+    pub const STRIDES: [u8; 4] = [8; 4];
     // pub const STRIDES: [u8; 8] = [4; 8];
 
     pub fn new() -> TreeBitMap<AF, T> {
@@ -1250,7 +1250,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride3(current_node))
                     }
@@ -1291,8 +1291,8 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // print!(". {:?}", pfx);
+                        // println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride4(current_node))
                     }
@@ -1328,7 +1328,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride5(current_node))
                     }
@@ -1364,7 +1364,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride6(current_node))
                     }
@@ -1399,7 +1399,7 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        println!("existing {:?}", pfx);
+                        // println!("existing {:?}", pfx);
                         // print!(". {:?}", pfx);
                         (None, SizedStrideNode::Stride7(current_node))
                     }
@@ -1424,7 +1424,7 @@ where
                     }
                     NewNodeOrIndex::ExistingPrefix => {
                         // print!(". {:?}", pfx);
-                        println!("existing {:?}", pfx);
+                        // println!("existing {:?}", pfx);
 
                         (None, SizedStrideNode::Stride8(current_node))
                     }
