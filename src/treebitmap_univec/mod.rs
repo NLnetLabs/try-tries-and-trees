@@ -2,6 +2,7 @@ use crate::common::{AddressFamily, NoMeta, Prefix};
 // use num::PrimInt;
 use std::cmp::Ordering;
 use std::fmt::{Binary, Debug};
+
 // pub struct BitMap8stride(u8, 8);
 #[derive(Copy, Clone)]
 pub struct U256(u128, u128);
@@ -1052,8 +1053,48 @@ where
 
         Some(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1)
     }
-}
 
+    fn search_stride_at_lmp_only<'b>(
+        self: &Self,
+        search_pfx: &Prefix<AF, NoMeta>,
+        mut nibble: u32,
+        nibble_len: u8,
+        start_bit: u8,
+        // found_pfx: &'b mut Vec<&'a Prefix<AF, T>>,
+        // found_pfx: &'b mut Vec<(AF, u32)>,
+    ) -> (Option<u32>, Option<(AF, u32)>) {
+        let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
+        let mut found_pfx = None;
+
+        for n_l in 1..(nibble_len + 1) {
+            // Move the bit in the right position.
+            nibble = AddressFamily::get_nibble(search_pfx.net, start_bit, n_l);
+            bit_pos = S::get_bit_pos(nibble, n_l);
+
+            // Check if the prefix has been set, if so select the prefix. This is not
+            // necessarily the final prefix that will be returned.
+
+            // Check it there's an prefix matching in this bitmap for this nibble
+            if self.pfxbitarr & bit_pos > S::zero() {
+                found_pfx = Some(self.pfx_vec[S::get_pfx_index(self.pfxbitarr, nibble, n_l)]);
+            }
+        }
+
+        // Check if this the last stride, or if they're no more children to go to,
+        // if so return what we found up until now.
+        if search_pfx.len < start_bit
+            || (S::into_stride_size(self.ptrbitarr) & bit_pos)
+                == <S as std::ops::BitAnd>::Output::zero()
+        {
+            return (None, found_pfx);
+        }
+
+        (
+            Some(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1),
+            found_pfx,
+        )
+    }
+}
 pub struct TreeBitMap<AF, T>
 where
     T: Debug,
@@ -1070,8 +1111,8 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    // pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
-    pub const STRIDES: [u8; 4] = [8; 4];
+    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
+    // pub const STRIDES: [u8; 4] = [8; 4];
     // pub const STRIDES: [u8; 8] = [4; 8];
 
     pub fn new() -> TreeBitMap<AF, T> {
@@ -1656,6 +1697,194 @@ where
             .iter()
             .map(|i| self.retrieve_prefix(i.1).unwrap())
             .collect()
+    }
+
+    pub fn match_longest_prefix_only(
+        &'a self,
+        search_pfx: &Prefix<AF, NoMeta>,
+    ) -> Option<&'a Prefix<AF, T>> {
+        let mut stride_end = 0;
+        // let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
+        let mut found_pfx_idx: Option<u32> = None;
+        let mut node = self.retrieve_node(0).unwrap();
+        // println!("");
+        // println!("{:?}", search_pfx);
+        // println!("             0   4   8   12  16  20  24  28  32");
+        // println!("             |---|---|---|---|---|---|---|---|");
+
+        for stride in Self::STRIDES.iter() {
+            stride_end += stride;
+
+            let nibble_len = if search_pfx.len < stride_end {
+                stride + search_pfx.len - stride_end
+            } else {
+                *stride
+            };
+
+            // Shift left and right to set the bits to zero that are not
+            // in the nibble we're handling here.
+            // let mut nibble = (search_pfx.net << (stride_end - stride) as usize)
+            //     >> (((Self::BITS - nibble_len) % Self::BITS) as usize);
+            let nibble = AddressFamily::get_nibble(search_pfx.net, stride_end - stride, nibble_len);
+
+            // let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
+            // let mut offset: u32 = (1_u32 << nibble_len) - 1;
+            // let mut bit_pos: u32 = 0x1 << (Self::BITS - offset as u8 - nibble as u8 - 1);
+
+            // In a LMP search we have to go over all the nibble lengths in the stride up
+            // until the value of the actual nibble length were looking for (until we reach
+            // stride length for all strides that aren't the last) and see if the
+            // prefix bit in that posision is set.
+            // Note that this does not search for prefixes with length 0 (which would always
+            // match).
+            // So for matching a nibble 1010, we have to search for 1, 10, 101 and 1010 on
+            // resp. position 1, 5, 12 and 25:
+            //                       ↓          ↓                         ↓                                                              ↓
+            // pfx bit arr (u32)   0 1 2  3  4  5  6   7   8   9  10  11  12  13  14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
+            // nibble              * 0 1 00 01 10 11 000 001 010 011 100 101 110 111 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111    x
+            // nibble len offset   0 1    2            3                                4
+            match node {
+                // nibble, nibble_len, pfx,
+                SizedStrideNode::Stride3(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride4(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride5(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride6(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride7(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+                SizedStrideNode::Stride8(current_node) => {
+                    match current_node.search_stride_at_lmp_only(
+                        search_pfx,
+                        nibble,
+                        nibble_len,
+                        stride_end - stride,
+                    ) {
+                        (Some(n), Some(pfx_idx)) => {
+                            found_pfx_idx = Some(pfx_idx.1);
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (Some(n), None) => {
+                            node = self.retrieve_node(n).unwrap();
+                        }
+                        (None, Some(pfx_idx)) => {
+                            return Some(self.retrieve_prefix(pfx_idx.1).unwrap())
+                        }
+                        (None, None) => {
+                            break;
+                        }
+                    }
+                }
+            };
+        }
+
+        if let Some(pfx_idx) = found_pfx_idx {
+            Some(self.retrieve_prefix(pfx_idx).unwrap())
+        } else {
+            None
+        }
     }
 }
 
