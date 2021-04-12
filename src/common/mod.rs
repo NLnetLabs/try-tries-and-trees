@@ -119,8 +119,12 @@ where
     pub fn new_with_meta(net: AF, len: u8, meta: T) -> Prefix<AF, T> {
         T::with_meta(net, len, Some(meta))
     }
-    pub fn strip_meta(self: &Self) -> Prefix::<AF, NoMeta> {
-        Prefix::<AF, NoMeta> { net: self.net, len: self.len, meta: None }
+    pub fn strip_meta(self: &Self) -> Prefix<AF, NoMeta> {
+        Prefix::<AF, NoMeta> {
+            net: self.net,
+            len: self.len,
+            meta: None,
+        }
     }
 }
 

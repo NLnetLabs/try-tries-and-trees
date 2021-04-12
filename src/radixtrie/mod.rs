@@ -148,7 +148,7 @@ where
                         // This will be the bit_pos size of the intermediary node (nn)
                         //
                         // next_node might be a more specific of our to-be-inserted prefix,
-                        // (which would result in a in_bit_pos of AF::BITS), so only consider 
+                        // (which would result in a in_bit_pos of AF::BITS), so only consider
                         // the parts that are common to both with the smallest length of both.
                         let in_bit_pos = std::cmp::min(
                             (pfx.net
@@ -181,7 +181,7 @@ where
                         // since that's the bit where they start to diverge.
                         let l_r_bit_next_node = (next_node.bit_id
                             << ((AF::BITS - next_node.bit_pos) + intermediary_node.bit_pos)
-                                as usize) 
+                                as usize)
                             .leading_zeros()
                             == 0;
 
@@ -266,9 +266,9 @@ where
 
         let mut next_pos = search_pfx.net << cursor.unwrap().bit_pos as usize;
         loop {
-            println!("pfx {:?}", search_pfx);
-            println!("{:?}", cursor.unwrap().bit_id);
-            println!("{}", (AF::BITS - cursor.unwrap().bit_pos) as usize);
+            // println!("pfx {:?}", search_pfx);
+            // println!("{:?}", cursor.unwrap().bit_id);
+            // println!("{}", (AF::BITS - cursor.unwrap().bit_pos) as usize);
             // The modulo (%) is to prevent the Shift left argument to become equal
             // (or greater) than AF::BITS.
             // AF::BITS << AF::BITS does not equal 0, but will overflow.
@@ -287,7 +287,7 @@ where
                             c.left.as_deref()
                         })
                         .and_then(|c| Some(c));
-                    println!("{:?}", match_pfx);
+                    // println!("{:?}", match_pfx);
                 }
                 _ if bit_id_match => {
                     cursor = cursor
@@ -296,7 +296,7 @@ where
                             c.right.as_deref()
                         })
                         .and_then(|c| Some(c));
-                    println!("{:?}", match_pfx);
+                    // println!("{:?}", match_pfx);
                 }
                 _ => {
                     break;
