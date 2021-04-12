@@ -961,6 +961,7 @@ where
         ))
     }
 
+    #[inline]
     fn search<'b>(
         self: &Self,
         search_pfx: &Prefix<AF, NoMeta>,
@@ -1001,7 +1002,7 @@ where
             if self.pfxbitarr & bit_pos > S::zero() {
                 found_pfx.push(self.pfx_vec[S::get_pfx_index(self.pfxbitarr, nibble, n_l)]);
                 // println!("vec: {:?}", self.pfx_vec);
-                println!("found: {:?}", found_pfx);
+                // println!("found: {:?}", found_pfx);
             }
         }
 
@@ -1045,8 +1046,8 @@ where
     AF: AddressFamily + Debug + PrimInt,
 {
     // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
-    // pub const STRIDES: [u8; 4] = [8; 4];
-    pub const STRIDES: [u8; 8] = [4; 8];
+    pub const STRIDES: [u8; 4] = [8; 4];
+    // pub const STRIDES: [u8; 8] = [4; 8];
 
     //    const STRIDES_SEQ: [SizedStride; 7] = [
     //         SizedStride::Stride7,
@@ -1453,7 +1454,7 @@ where
             };
         }
 
-        println!("=");
+        // println!("=");
         found_pfx
     }
 }
