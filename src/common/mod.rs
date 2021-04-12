@@ -283,23 +283,23 @@ where
         let mut cursor = &self.0;
         let mut cursor_pfx: AF = num::zero();
         let mut match_pfx: Option<&'a Prefix<AF, T>> = None;
-        let mut build_pfx = num::zero();
-        let mut match_len = 0;
+        // let mut build_pfx = num::zero();
+        // let mut match_len = 0;
         let zero: AF = num::zero();
         let mut first_bit = search_pfx.net;
 
-        for i in 0..(search_pfx.len + 1) {
+        for _ in 0..(search_pfx.len + 1) {
             if let Some(found_pfx) = cursor.prefix {
                 match_pfx = Some(found_pfx);
-                build_pfx = cursor_pfx;
-                match_len = i;
-                let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
-                println!(
-                    "less-specific: {}/{} with {:?}",
-                    AF::fmt_net(cursor_pfx << shift).as_str(),
-                    match_len,
-                    found_pfx.meta
-                );
+                // build_pfx = cursor_pfx;
+                // match_len = i;
+                // let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
+                // println!(
+                //     "less-specific: {}/{} with {:?}",
+                //     AF::fmt_net(cursor_pfx << shift).as_str(),
+                //     match_len,
+                //     found_pfx.meta
+                // );
             }
 
             match first_bit & AF::BITMASK {
@@ -323,11 +323,11 @@ where
             first_bit = first_bit << 1;
         }
 
-        if match_len > 0 {
-            let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
-            println!("built prefix: {}/{}", build_pfx_net.as_str(), match_len);
-        }
-
+        // if match_len > 0 {
+            // let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
+        //     println!("built prefix: {}/{}", build_pfx_net.as_str(), match_len);
+        // }
+        // println!("{:?}", match_pfx);
         match_pfx
     }
 }
