@@ -10,7 +10,7 @@ mod test {
     // use shrust::{Shell, ShellIO};
     // use std::io::prelude::*;
 
-    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz.csv";
+    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
 
     #[test]
     fn test_csv() {
