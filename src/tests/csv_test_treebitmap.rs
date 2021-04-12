@@ -1,9 +1,9 @@
 mod test {
     use crate::common::{NoMeta, Prefix, PrefixAs};
-    use crate::treebitmap_univec::TreeBitMap;
-    use std::env;
+    use crate::treebitmap::TreeBitMap;
+    // use std::env;
     use std::error::Error;
-    use std::ffi::OsString;
+    // use std::ffi::OsString;
     use std::fs::File;
     use std::process;
 
@@ -43,7 +43,7 @@ mod test {
         println!("finished loading {} prefixes...", pfxs.len());
         let start = std::time::Instant::now();
 
-        for pfx in pfxs.into_iter() {
+        for pfx in pfxs.iter() {
             tree_bitmap.insert(pfx);
         }
         let ready = std::time::Instant::now();
@@ -53,7 +53,7 @@ mod test {
             ready.checked_duration_since(start).unwrap().as_millis()
         );
 
-        println!("prefix vec size {}", tree_bitmap.prefixes.len());
+        // println!("prefix vec size {}", tree_bitmap.prefixes.len());
 
         println!("finished building tree...");
 
@@ -76,7 +76,7 @@ mod test {
                         std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
                         s_len,
                     );
-                    tree_bitmap.match_longest_prefix_only(&pfx);
+                    tree_bitmap.match_longest_prefix(&pfx);
                 }
             }
         }

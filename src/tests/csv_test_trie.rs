@@ -1,9 +1,9 @@
 mod test {
     use crate::common::{NoMeta, Prefix, PrefixAs};
-    use crate::treebitmap_univec::TreeBitMap;
-    use std::env;
+    use crate::common::Trie;
+    // use std::env;
     use std::error::Error;
-    use std::ffi::OsString;
+    // use std::ffi::OsString;
     use std::fs::File;
     use std::process;
 
@@ -34,7 +34,7 @@ mod test {
         }
 
         let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-        let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new();
+        let mut trie: Trie<u32, PrefixAs> = Trie::new();
 
         if let Err(err) = load_prefixes(&mut pfxs) {
             println!("error running example: {}", err);
@@ -43,8 +43,8 @@ mod test {
         println!("finished loading {} prefixes...", pfxs.len());
         let start = std::time::Instant::now();
 
-        for pfx in pfxs.into_iter() {
-            tree_bitmap.insert(pfx);
+        for pfx in pfxs.iter() {
+            trie.insert(pfx);
         }
         let ready = std::time::Instant::now();
 
@@ -53,15 +53,11 @@ mod test {
             ready.checked_duration_since(start).unwrap().as_millis()
         );
 
-        println!("prefix vec size {}", tree_bitmap.prefixes.len());
+        // println!("prefix vec size {}", tree_bitmap.prefixes.len());
 
         println!("finished building tree...");
 
-        println!(
-            "stride division  {:?}",
-            TreeBitMap::<u32, PrefixAs>::STRIDES
-        );
-        for s in &tree_bitmap.stats {
+        for s in &trie.1 {
             println!("{:?}", s);
         }
 
@@ -76,7 +72,7 @@ mod test {
                         std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
                         s_len,
                     );
-                    tree_bitmap.match_longest_prefix_only(&pfx);
+                    trie.match_longest_prefix(&pfx);
                 }
             }
         }
