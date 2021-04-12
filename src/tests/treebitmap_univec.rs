@@ -90,8 +90,9 @@ mod test {
 
         for pfx in tree_bitmap.prefixes.iter() {
             let pfx_nm = pfx.strip_meta();
-            let res = tree_bitmap.match_longest_prefix(&pfx_nm);
-            assert_eq!(*res.last().unwrap(), pfx);
+            let res = tree_bitmap.match_longest_prefix_only(&pfx_nm);
+            println!("{:?}", pfx);
+            assert_eq!(res.unwrap(), pfx);
         }
 
         let res = tree_bitmap.match_longest_prefix(&Prefix::<u32, NoMeta>::new(
@@ -143,10 +144,10 @@ mod test {
                         std::net::Ipv4Addr::new(i_net, 0, 0, 0).into(),
                         s_len,
                     );
-                    let res = tree_bitmap.match_longest_prefix(&pfx);
+                    let res = tree_bitmap.match_longest_prefix_only(&pfx);
                     println!("{:?}", pfx);
 
-                    assert_eq!(*res.last().unwrap(), &res_pfx);
+                    assert_eq!(res.unwrap(), &res_pfx);
                 }
             }
         }
