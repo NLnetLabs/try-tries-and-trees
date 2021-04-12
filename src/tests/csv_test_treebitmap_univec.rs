@@ -10,7 +10,7 @@ mod test {
     // use shrust::{Shell, ShellIO};
     // use std::io::prelude::*;
 
-    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz.csv";
+    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
 
     #[test]
     fn test_csv() {
@@ -18,7 +18,6 @@ mod test {
             let file = File::open(CSV_FILE_PATH)?;
             let mut rdr = csv::Reader::from_reader(file);
             for result in rdr.records() {
-               
                 let record = result?;
                 let ip: Vec<_> = record[0]
                     .split(".")
@@ -43,6 +42,7 @@ mod test {
         println!("finished loading {} prefixes...", pfxs.len());
         let start = std::time::Instant::now();
 
+        let pfxs_len = pfxs.len();
         for pfx in pfxs.into_iter() {
             tree_bitmap.insert(pfx);
         }
@@ -51,6 +51,10 @@ mod test {
         println!(
             "finished building tree in {} msecs...",
             ready.checked_duration_since(start).unwrap().as_millis()
+        );
+        println!(
+            "{} inserts/sec",
+            pfxs_len as f32 / ready.checked_duration_since(start).unwrap().as_secs_f32()
         );
 
         println!("prefix vec size {}", tree_bitmap.prefixes.len());
