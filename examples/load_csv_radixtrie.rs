@@ -1,3 +1,4 @@
+use ansi_term::Colour;
 use std::env;
 use std::error::Error;
 use std::ffi::OsString;
@@ -60,6 +61,53 @@ fn main() {
         "finished building tree in {} msecs...",
         ready.checked_duration_since(start).unwrap().as_millis()
     );
+    let (total_nodes, total_prefixes) = trie.1.iter().fold((0, 0), |total_n: (u64, u64), n| {
+        (
+            total_n.0 + n.nodes_num as u64,
+            total_n.1 + n.prefixes_num as u64,
+        )
+    });
+    println!("total intermediary nodes : {:?}", total_nodes);
+    println!("total prefix nodes counted: {:?}", total_prefixes);
+    println!(
+        "nodes per prefix: {}",
+        total_nodes as f64 / total_prefixes as f64
+    );
+
+    let bars = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"];
+    const SCALE: u32 = 3500;
+
+    for s in &trie.1 {
+        print!("{}\t", s.level);
+        let n = (s.nodes_num / SCALE) as usize;
+        for x in 0..n {
+            if x <= (s.prefixes_num / SCALE) as usize {
+                print!("{}", Colour::Blue.paint("█"));
+            } else {
+                print!("{}", Colour::Green.paint("█"));
+            }
+        }
+        if s.nodes_num / SCALE <= s.prefixes_num / SCALE {
+            print!(
+                "{}",
+                Colour::Blue.paint(bars[((s.nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = scale / 7
+            );
+        } else {
+            print!(
+                "{}",
+                Colour::Green.paint(bars[((s.nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = 1500 / 7
+            );
+        }
+
+        println!(
+            " {}/{} {:.2}% {} {}",
+            s.nodes_num,
+            u64::pow(2, s.level as u32),
+            (s.nodes_num as f64 / u64::pow(2, s.level as u32) as f64) * 100.0,
+            s.prefixes_num,
+            s.compression as f32 / s.nodes_num as f32
+        );
+    }
 
     let mut shell = Shell::new(trie);
     shell.new_command("s", "search the RIB", 1, |io, trie, s| {

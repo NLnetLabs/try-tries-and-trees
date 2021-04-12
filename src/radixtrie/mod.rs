@@ -33,7 +33,15 @@ where
 }
 
 #[derive(Debug)]
-pub struct RadixTrie<'a, AF, T>(RadixTrieNode<'a, AF, T>)
+pub struct LevelStats {
+    pub level: u8,
+    pub compression: u16,
+    pub nodes_num: u32,
+    pub prefixes_num: u32,
+}
+
+#[derive(Debug)]
+pub struct RadixTrie<'a, AF, T>(RadixTrieNode<'a, AF, T>, pub Vec<LevelStats>)
 where
     T: Debug,
     AF: AddressFamily + PrimInt + Debug;
@@ -44,25 +52,41 @@ where
     AF: AddressFamily + PrimInt + Debug + fmt::Binary,
 {
     pub fn new() -> RadixTrie<'a, AF, T> {
-        RadixTrie(RadixTrieNode {
-            prefix: None,
-            bit_pos: 0,
-            bit_id: AF::zero(),
-            left: None,
-            right: None,
-        })
+        RadixTrie(
+            RadixTrieNode {
+                prefix: None,
+                bit_pos: 0,
+                bit_id: AF::zero(),
+                left: None,
+                right: None,
+            },
+            (0..33)
+                .collect::<Vec<u8>>()
+                .into_iter()
+                .map(|level| LevelStats {
+                    level,
+                    compression: 0,
+                    nodes_num: 0,
+                    prefixes_num: 0,
+                })
+                .collect(),
+        )
     }
 
     pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
         let mut cursor = &mut self.0;
 
         let zero = num::zero();
+        let mut level: u8 = 0; // used for stats only
 
         loop {
             // we might already be at the place we need to be,
             // at either a leaf or an internal node, just
             // set our insert prefix here and be done with it.
             if pfx.len == cursor.bit_pos {
+                if cursor.prefix.is_none() {
+                    self.1[level as usize].prefixes_num += 1;
+                }
                 cursor.prefix = Some(&pfx);
                 break;
             }
@@ -80,6 +104,9 @@ where
                     new_leaf.bit_pos = pfx.len;
                     new_leaf.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
                     *next_cursor = Some(Box::new(new_leaf));
+                    self.1[(level + 1) as usize].nodes_num += 1;
+                    self.1[(level + 1) as usize].prefixes_num += 1;
+                    self.1[(level + 1) as usize].compression += (pfx.len - level) as u16;
                     break;
                 }
                 // There is a node on the left side, we need to see if that node's
@@ -89,12 +116,14 @@ where
                     // prefix to be inserted. So if the next_node is a more specific, than
                     // we cut that off at the the pfx.len.
                     let relevant_bit_pos = std::cmp::min(next_node.bit_pos, pfx.len);
-                    
-                    if next_node.bit_pos == pfx.len && pfx.net >> (AF::BITS - pfx.len) as usize == next_node.bit_id {
+
+                    if next_node.bit_pos == pfx.len
+                        && pfx.net >> (AF::BITS - pfx.len) as usize == next_node.bit_id
+                    {
                         // This prefix already exists here, that's the end
                         break;
                     }
-                    // Check if the to-be-inserted prefix is aligned  the next_node AND it's less 
+                    // Check if the to-be-inserted prefix is aligned  the next_node AND it's less
                     // specific than our to-be-inserted prefix. If so let's move on.
                     if pfx.net >> (AF::BITS - relevant_bit_pos) as usize
                         == (next_node.bit_id >> (next_node.bit_pos - relevant_bit_pos) as usize)
@@ -166,6 +195,10 @@ where
                         // We are overshooting our intended child, we have to go back
                         // to inserting this final prefix node on cursor, not next_node.
                         if in_bit_pos >= pfx.len {
+                            self.1[(level) as usize].nodes_num += 1;
+                            self.1[(level) as usize].compression += (pfx.len - level) as u16;
+                            self.1[(level) as usize].prefixes_num += 1;
+
                             match l_r_bit_next_node {
                                 true => {
                                     insert_node.right = std::mem::take(&mut next_cursor);
@@ -186,12 +219,25 @@ where
                             // Insert the intermediary node in between the cursor
                             // and its [left|right] child.
 
+                            // we've created two nodes at this point (intermediary_node and insert_node), so add two to the counter
+                            self.1[(level + 1) as usize].nodes_num += 1;
+                            self.1[(level + 1) as usize].compression += (pfx.len - level) as u16;
+                            // only insert_node has always a prefix attached.
+                            if intermediary_node.prefix.is_some() {
+                                self.1[(level + 1) as usize].prefixes_num += 1;
+                                self.1[(level + 2) as usize].prefixes_num += 1;
+                            } else {
+                                self.1[(level + 1) as usize].prefixes_num += 1;
+                            }
+
                             // cursor is cut off at this point after this assignment!
                             *next_node = std::mem::take(&mut next_cursor);
                             if !done {
                                 // let mut nn = RadixTrieNode::new(Some(&pfx));
+
                                 insert_node.bit_pos = pfx.len;
                                 insert_node.bit_id = pfx.net >> (AF::BITS - pfx.len) as usize;
+                                self.1[(level + 2) as usize].nodes_num += 1;
                                 *next_node_opp = Some(Box::new(insert_node));
                                 done = true;
                             }
@@ -206,6 +252,7 @@ where
                 }
             };
             cursor = next_cursor.as_deref_mut().unwrap();
+            level += 1;
         }
     }
 

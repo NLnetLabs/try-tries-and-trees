@@ -191,7 +191,14 @@ where
     }
 }
 
-pub struct Trie<'a, AF, T>(TrieNode<'a, AF, T>)
+#[derive(Debug)]
+pub struct TrieLevelStats {
+    pub level: u8,
+    pub nodes_num: u32,
+    pub prefixes_num: u32,
+}
+
+pub struct Trie<'a, AF, T>(TrieNode<'a, AF, T>, pub Vec<TrieLevelStats>)
 where
     T: Debug,
     AF: AddressFamily + PrimInt + Debug;
@@ -202,11 +209,22 @@ where
     AF: AddressFamily + PrimInt + Debug + fmt::Binary,
 {
     pub fn new() -> Trie<'a, AF, T> {
-        Trie(TrieNode {
-            prefix: None,
-            left: None,
-            right: None,
-        })
+        Trie(
+            TrieNode {
+                prefix: None,
+                left: None,
+                right: None,
+            },
+            (0..33)
+                .collect::<Vec<u8>>()
+                .into_iter()
+                .map(|level| TrieLevelStats {
+                    level,
+                    nodes_num: 0,
+                    prefixes_num: 0,
+                })
+                .collect(),
+        )
     }
 
     pub fn insert(&mut self, pfx: &'a Prefix<AF, T>) {
@@ -215,6 +233,7 @@ where
         let mut first_bit = pfx.net;
         let mut built_prefix: AF = num::zero();
         let zero = num::zero();
+        let mut level: usize = 0;
 
         for _ in 0..pfx.len {
             // println!("{:#b} : {}", first_bit, first_bit.leading_ones());
@@ -222,6 +241,8 @@ where
                 b if b == zero => {
                     if !cursor.left.is_some() {
                         // new node on the left
+                        self.1[level + 1].nodes_num += 1;
+
                         cursor.left = Some(Box::new(TrieNode::new(None)))
                     };
                     built_prefix = built_prefix << 1;
@@ -230,6 +251,8 @@ where
                 _ => {
                     if !cursor.right.is_some() {
                         // new node on the right
+                        self.1[level + 1].nodes_num += 1;
+
                         cursor.right = Some(Box::new(TrieNode::new(None)));
                     }
                     built_prefix = built_prefix << 1 | num::one();
@@ -237,6 +260,7 @@ where
                 }
             }
             first_bit = first_bit << num::one();
+            level += 1;
         }
         // println!("bp: {:b}", built_prefix);
 
@@ -244,6 +268,9 @@ where
         // let shift: usize = (AF::BITS - pfx.len) as usize;
         // let net = built_prefix << if shift < AF::BITS as usize { shift } else { 0 };
 
+        if cursor.prefix.is_none() {
+            self.1[level].prefixes_num += 1;
+        }
         // println!("{:b}", net);
         cursor.prefix = Some(&pfx);
         // println!("inserted prefix: {:?}/{}", AF::fmt_net(net), len);

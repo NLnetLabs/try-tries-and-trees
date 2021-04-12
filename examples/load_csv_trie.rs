@@ -1,6 +1,8 @@
-use std::fs::File;
+use ansi_term::Colour;
 use std::error::Error;
 use std::ffi::OsString;
+use std::fs::File;
+
 use std::env;
 use std::process;
 use trie::common::{NoMeta, Prefix, PrefixAs, Trie};
@@ -59,13 +61,67 @@ fn main() {
         ready.checked_duration_since(start).unwrap().as_millis()
     );
 
+    let (total_nodes, total_prefixes) = trie.1
+    .iter()
+    .fold((0, 0), |total_n: (u64, u64), n| (total_n.0 + n.nodes_num as u64, total_n.1 + n.prefixes_num as u64));
+    println!(
+        "total intermediary nodes : {:?}",
+        total_nodes
+    );
+    println!(
+        "total prefix nodes counted: {:?}",
+        total_prefixes
+    );
+    println!("nodes per prefix: {}", total_nodes as f64 / total_prefixes as f64);
+
+    println!("level\t[bars:prefix|nodes] nodes occupied/max nodes percentage_max_nodes_occupied prefixes");
+    let bars = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"];
+    const SCALE: u32 = 3500;
+
+    for s in &trie.1 {
+        print!("{}\t", s.level);
+        let n = (s.nodes_num / SCALE) as usize;
+        for x in 0..n {
+            if x <= (s.prefixes_num / SCALE) as usize {
+                print!("{}", Colour::Blue.paint("█"));
+            } else {
+                print!("{}", Colour::Green.paint("█"));
+            }
+        }
+        if s.nodes_num / SCALE <= s.prefixes_num / SCALE {
+            print!(
+                "{}",
+                Colour::Blue.paint(bars[((s.nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = scale / 7
+            );
+        } else {
+            print!(
+                "{}",
+                Colour::Green.paint(bars[((s.nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = 1500 / 7
+            );
+        }
+
+        println!(
+            " {}/{} {:.2}% {}",
+            s.nodes_num,
+            u64::pow(2, s.level as u32),
+            (s.nodes_num as f64 / u64::pow(2, s.level as u32) as f64) * 100.0,
+            s.prefixes_num,
+        );
+    }
+
     let mut shell = Shell::new(trie);
     shell.new_command("s", "search the RIB", 1, |io, trie, s| {
         let s_pref: Vec<&str> = s[0].split("/").collect();
         let len = s_pref[1].parse::<u8>().unwrap();
-        let s_net: Vec<u8> = s_pref[0].split(".").map(|o| -> u8 { o.parse::<u8>().unwrap()}).collect();
-        let pfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(s_net[0],s_net[1],s_net[2],s_net[3]).into(), len);
-        let s_pfx =trie.match_longest_prefix(&pfx);
+        let s_net: Vec<u8> = s_pref[0]
+            .split(".")
+            .map(|o| -> u8 { o.parse::<u8>().unwrap() })
+            .collect();
+        let pfx = Prefix::<u32, NoMeta>::new(
+            std::net::Ipv4Addr::new(s_net[0], s_net[1], s_net[2], s_net[3]).into(),
+            len,
+        );
+        let s_pfx = trie.match_longest_prefix(&pfx);
         writeln!(io, "{:?}", s_pfx)?;
         Ok(())
     });
