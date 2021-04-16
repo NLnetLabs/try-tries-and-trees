@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 mod test {
     use crate::common::{NoMeta, Prefix, PrefixAs};
     use crate::radixtrie::RadixTrie;
@@ -10,10 +11,11 @@ mod test {
     // use shrust::{Shell, ShellIO};
     // use std::io::prelude::*;
 
-    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz.csv";
 
     #[test]
     fn test_csv() {
+        const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz.csv";
+
         fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Error>> {
             let file = File::open(CSV_FILE_PATH)?;
             let mut rdr = csv::Reader::from_reader(file);

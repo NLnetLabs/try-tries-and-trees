@@ -1,6 +1,9 @@
+#![allow(unused_imports)]
 mod test {
     use crate::common::{NoMeta, Prefix, PrefixAs};
     use crate::treebitmap_univec::TreeBitMap;
+    use crate::common::TrieLevelStats;
+    use ansi_term::Colour;
     use std::env;
     use std::error::Error;
     use std::ffi::OsString;
@@ -10,10 +13,10 @@ mod test {
     // use shrust::{Shell, ShellIO};
     // use std::io::prelude::*;
 
-    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
-
     #[test]
     fn test_csv() {
+        const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
+
         fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Error>> {
             let file = File::open(CSV_FILE_PATH)?;
             let mut rdr = csv::Reader::from_reader(file);
