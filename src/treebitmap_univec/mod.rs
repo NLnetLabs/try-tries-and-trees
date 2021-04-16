@@ -1217,7 +1217,7 @@ where
     // stride 4: 1 + 2 + 4 + 8 + 16                         =  31 bits. 2^5 - 1 (1 << 5) - 1. ptrbitarr starts at pos 15 (1 << 4) - 1
     // stride 5: 1 + 2 + 4 + 8 + 16 + 32 + 64               =  63 bits. 2^6 - 1
     // stride 6: 1 + 2 + 4 + 8 + 16 + 32 + 64               = 127 bits. 2^7 - 1
-    // stride 7: 1 + 2 + 4 + 8 + 16 + 32 + 64 = 128         = 256 bits. 2^8 - 1
+    // stride 7: 1 + 2 + 4 + 8 + 16 + 32 + 64 = 128         = 256 bits. 2^8 - 1126
     // stride 8: 1 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256   = 511 bits. 2^9 - 1
     //
     // Ex.:
@@ -1278,6 +1278,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[0].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1321,6 +1322,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[1].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1357,6 +1359,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[2].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1393,6 +1396,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[3].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1429,6 +1433,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[4].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1471,6 +1476,7 @@ where
                     }
                     NewNodeOrIndex::NewPrefix => {
                         let i = self.store_prefix(pfx);
+                        self.stats[5].inc_prefix_count(level);
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
@@ -1903,6 +1909,7 @@ pub struct StrideStats {
     pub stride_len: u8,
     pub node_size: usize,
     pub created_nodes: Vec<CreatedNodes>,
+    pub prefixes_num: Vec<CreatedNodes>,
 }
 
 impl StrideStats {
@@ -1914,6 +1921,7 @@ impl StrideStats {
                 stride_len: 3,
                 node_size: std::mem::size_of::<Stride3>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride4 => Self {
                 stride_type: SizedStride::Stride4,
@@ -1921,6 +1929,7 @@ impl StrideStats {
                 stride_len: 4,
                 node_size: std::mem::size_of::<Stride4>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride5 => Self {
                 stride_type: SizedStride::Stride5,
@@ -1928,6 +1937,7 @@ impl StrideStats {
                 stride_len: 5,
                 node_size: std::mem::size_of::<Stride5>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride6 => Self {
                 stride_type: SizedStride::Stride6,
@@ -1935,6 +1945,7 @@ impl StrideStats {
                 stride_len: 6,
                 node_size: std::mem::size_of::<Stride6>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride7 => Self {
                 stride_type: SizedStride::Stride7,
@@ -1942,6 +1953,7 @@ impl StrideStats {
                 stride_len: 7,
                 node_size: std::mem::size_of::<Stride7>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride8 => Self {
                 stride_type: SizedStride::Stride8,
@@ -1949,6 +1961,7 @@ impl StrideStats {
                 stride_len: 8,
                 node_size: std::mem::size_of::<Stride8>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
         }
     }
@@ -1974,6 +1987,10 @@ impl StrideStats {
 
     fn inc(&mut self, depth_level: u8) {
         self.created_nodes[depth_level as usize].count += 1;
+    }
+
+    fn inc_prefix_count(&mut self, depth_level: u8) {
+        self.prefixes_num[depth_level as usize].count += 1;
     }
 }
 

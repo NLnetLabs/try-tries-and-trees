@@ -1,3 +1,4 @@
+use ansi_term::Colour;
 use std::env;
 use std::error::Error;
 use std::ffi::OsString;
@@ -61,19 +62,103 @@ fn main() {
         ready.checked_duration_since(start).unwrap().as_millis()
     );
 
+    let total_nodes = tree_bitmap.stats.iter().fold(0, |mut acc, c| {
+        acc += c.created_nodes.iter().fold(0, |mut sum, l| {
+            sum += l.count;
+            sum
+        });
+        acc
+    });
+    println!("{:?} nodes created", total_nodes);
     println!(
-        "{:?} nodes created",
-        tree_bitmap.stats.iter().fold(0, |mut acc, c| {
-            acc += c.created_nodes.iter().fold(0, |mut sum, l| {
-                sum += l.count;
-                sum
-            });
-            acc
-        })
+        "size of node: {} bytes",
+        std::mem::size_of::<trie::treebitmap::SizedStrideNode<u32, NoMeta>>()
     );
-    println!("stride division  {:?}", TreeBitMap::<u32, PrefixAs>::STRIDES);
+    println!(
+        "memory used by nodes: {}kb",
+        total_nodes * std::mem::size_of::<trie::treebitmap::SizedStrideNode<u32, NoMeta>>() / 1024
+    );
+    println!(
+        "size of prefix: {} bytes",
+        std::mem::size_of::<Prefix<u32, PrefixAs>>()
+    );
+    println!(
+        "memory used by prefixes: {}kb",
+        tree_bitmap.stats.iter().fold(0, |acc, p| acc
+            + p.prefixes_num.iter().fold(0, |acc, p| acc + p.count)) as u64
+            * std::mem::size_of::<Prefix<u32, NoMeta>>() as u64
+            / 1024
+    );
+
+    println!(
+        "stride division  {:?}",
+        TreeBitMap::<u32, PrefixAs>::STRIDES
+    );
     for s in &tree_bitmap.stats {
         println!("{:?}", s);
+    }
+
+    println!(
+        "level\t[{}|{}] nodes occupied/max nodes percentage_max_nodes_occupied prefixes",
+        Colour::Blue.paint("nodes"),
+        Colour::Green.paint("prefixes")
+    );
+    let bars = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"];
+    let mut stride_bits = [0, 0];
+    const SCALE: u32 = 3500;
+
+    for stride in TreeBitMap::<u32, PrefixAs>::STRIDES.iter().enumerate() {
+        // let level = stride.0;
+        stride_bits = [stride_bits[1] + 1, stride_bits[1] + stride.1];
+        let nodes_num = tree_bitmap
+            .stats
+            .iter()
+            .find(|s| s.stride_len == *stride.1)
+            .unwrap()
+            .created_nodes[stride.0]
+            .count as u32;
+        let prefixes_num = tree_bitmap
+            .stats
+            .iter()
+            .find(|s| s.stride_len == *stride.1)
+            .unwrap()
+            .prefixes_num[stride.0]
+            .count as u32;
+
+        let n = (nodes_num / SCALE) as usize;
+        let max_pfx: u64 = u64::pow(2, stride_bits[1] as u32);
+
+        print!("{}-{}\t", stride_bits[0], stride_bits[1]);
+
+        for _ in 0..n {
+            print!("{}", Colour::Blue.paint("█"));
+        }
+
+        print!(
+            "{}",
+            Colour::Blue.paint(bars[((nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = scale / 7
+        );
+
+        print!(
+            " {}/{} {:.2}%",
+            nodes_num,
+            max_pfx,
+            (nodes_num as f64 / max_pfx as f64) * 100.0
+        );
+        print!("\n\t");
+
+        let n = (prefixes_num / SCALE) as usize;
+        for _ in 0..n {
+            print!("{}", Colour::Green.paint("█"));
+        }
+
+        print!(
+            "{}",
+            Colour::Green.paint(bars[((nodes_num % SCALE) / (SCALE / 7)) as usize]) //  = scale / 7
+        );
+
+        // let max_pfx = u64::pow(2, stride_bits[1] as u32) - u64::pow(2, stride_bits[0] as u32 - 1) + 1;
+        println!(" {}", prefixes_num);
     }
 
     let spfx = Prefix::new(std::net::Ipv4Addr::new(193, 0, 10, 0).into(), 23);

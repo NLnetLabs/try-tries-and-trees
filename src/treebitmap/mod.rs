@@ -831,9 +831,10 @@ where
         pfx: &'a Prefix<AF, T>,
         next_stride: Option<&&u8>,
         is_last_stride: bool,
-    ) -> Option<(&mut SizedStrideNode<'a, AF, T>, bool)> {
+    ) -> (Option<(&mut SizedStrideNode<'a, AF, T>, bool)>, bool) {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
         let mut has_created_node = false;
+        let mut has_created_pfx = false;
         // println!("n {:b} nl {}", nibble, nibble_len);
 
         // Check that we're not at the last stride (pfx.len <= stride_end),
@@ -935,10 +936,11 @@ where
                 // );
 
                 self.pfx_vec.push(pfx);
+                has_created_pfx = true;
                 self.pfx_vec.sort();
                 // println!("{:?}", self.pfx_vec);
             }
-            return None;
+            return (None, has_created_pfx);
         }
 
         // println!("__bit_pos__: {:?}", bit_pos);
@@ -955,10 +957,13 @@ where
         // // println!("{}", next_index);
         // println!("{:?}", self.ptr_vec);
         // println!("?? {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
-        Some((
-            &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
-            has_created_node,
-        ))
+        (
+            Some((
+                &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
+                has_created_node,
+            )),
+            has_created_pfx,
+        )
     }
 
     #[inline]
@@ -1208,13 +1213,19 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, has_created_node)) => {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[0].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[0].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[0].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1225,13 +1236,19 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, has_created_node)) => {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[1].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[1].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[1].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1242,13 +1259,19 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, has_created_node)) => {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[2].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[2].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[2].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1259,13 +1282,19 @@ where
                     strides.peek(),
                     pfx.len <= stride_end,
                 ) {
-                    Some((n, has_created_node)) => {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[3].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[3].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[3].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1275,14 +1304,20 @@ where
                     pfx,
                     strides.peek(),
                     pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
+                )  {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[4].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[4].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[4].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1292,14 +1327,20 @@ where
                     pfx,
                     strides.peek(),
                     pfx.len <= stride_end,
-                ) {
-                    Some((n, has_created_node)) => {
+                )  {
+                    (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[5].inc(level);
                         }
+                        if has_created_pfx {
+                            self.stats[5].inc_prefix_count(level);
+                        }
                         n
                     }
-                    None => {
+                    (None, has_created_pfx) => {
+                        if has_created_pfx {
+                            self.stats[5].inc_prefix_count(level);
+                        }
                         return;
                     }
                 },
@@ -1474,6 +1515,7 @@ pub struct StrideStats {
     pub stride_len: u8,
     pub node_size: usize,
     pub created_nodes: Vec<CreatedNodes>,
+    pub prefixes_num: Vec<CreatedNodes>,
 }
 
 impl StrideStats {
@@ -1485,6 +1527,7 @@ impl StrideStats {
                 stride_len: 3,
                 node_size: std::mem::size_of::<Stride3>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride4 => Self {
                 stride_type: SizedStride::Stride4,
@@ -1492,6 +1535,7 @@ impl StrideStats {
                 stride_len: 4,
                 node_size: std::mem::size_of::<Stride4>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride5 => Self {
                 stride_type: SizedStride::Stride5,
@@ -1499,6 +1543,7 @@ impl StrideStats {
                 stride_len: 5,
                 node_size: std::mem::size_of::<Stride5>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride6 => Self {
                 stride_type: SizedStride::Stride6,
@@ -1506,6 +1551,7 @@ impl StrideStats {
                 stride_len: 6,
                 node_size: std::mem::size_of::<Stride6>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride7 => Self {
                 stride_type: SizedStride::Stride7,
@@ -1513,6 +1559,7 @@ impl StrideStats {
                 stride_len: 7,
                 node_size: std::mem::size_of::<Stride7>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
             SizedStride::Stride8 => Self {
                 stride_type: SizedStride::Stride8,
@@ -1520,6 +1567,7 @@ impl StrideStats {
                 stride_len: 8,
                 node_size: std::mem::size_of::<Stride8>(),
                 created_nodes: Self::nodes_vec(num_depth_levels),
+                prefixes_num: Self::nodes_vec(num_depth_levels),
             },
         }
     }
@@ -1545,6 +1593,10 @@ impl StrideStats {
 
     fn inc(&mut self, depth_level: u8) {
         self.created_nodes[depth_level as usize].count += 1;
+    }
+
+    fn inc_prefix_count(&mut self, depth_level: u8) {
+        self.prefixes_num[depth_level as usize].count += 1;
     }
 }
 

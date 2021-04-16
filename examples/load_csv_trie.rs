@@ -61,18 +61,26 @@ fn main() {
         ready.checked_duration_since(start).unwrap().as_millis()
     );
 
-    let (total_nodes, total_prefixes) = trie.1
-    .iter()
-    .fold((0, 0), |total_n: (u64, u64), n| (total_n.0 + n.nodes_num as u64, total_n.1 + n.prefixes_num as u64));
+    let (total_nodes, total_prefixes) = trie.1.iter().fold((0, 0), |total_n: (u64, u64), n| {
+        (
+            total_n.0 + n.nodes_num as u64,
+            total_n.1 + n.prefixes_num as u64,
+        )
+    });
+    println!("total intermediary nodes : {:?}", total_nodes);
     println!(
-        "total intermediary nodes : {:?}",
-        total_nodes
+        "size of node: {} bytes",
+        std::mem::size_of::<trie::common::TrieNode<u32, NoMeta>>()
     );
     println!(
-        "total prefix nodes counted: {:?}",
-        total_prefixes
+        "memory used by nodes: {}kb",
+        total_nodes * std::mem::size_of::<trie::common::TrieNode<u32, NoMeta>>() as u64 / 1024
     );
-    println!("nodes per prefix: {}", total_nodes as f64 / total_prefixes as f64);
+    println!("total prefix nodes counted: {:?}", total_prefixes);
+    println!(
+        "nodes per prefix: {}",
+        total_nodes as f64 / total_prefixes as f64
+    );
 
     println!("level\t[bars:prefix|nodes] nodes occupied/max nodes percentage_max_nodes_occupied prefixes");
     let bars = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"];

@@ -68,6 +68,14 @@ fn main() {
         )
     });
     println!("total intermediary nodes : {:?}", total_nodes);
+    println!(
+        "size of node: {} bytes",
+        std::mem::size_of::<trie::radixtrie::RadixTrieNode<u32, NoMeta>>()
+    );
+    println!(
+        "memory used by nodes: {}kb",
+        total_nodes * std::mem::size_of::<trie::radixtrie::RadixTrieNode<u32, NoMeta>>() as u64 / 1024
+    );
     println!("total prefix nodes counted: {:?}", total_prefixes);
     println!(
         "nodes per prefix: {}",
