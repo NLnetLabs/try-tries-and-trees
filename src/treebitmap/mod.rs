@@ -1051,7 +1051,8 @@ where
     AF: AddressFamily + Debug + PrimInt,
 {
     // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
-    pub const STRIDES: [u8; 4] = [8; 4];
+    pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4];
+    // pub const STRIDES: [u8; 4] = [8; 4];
     // pub const STRIDES: [u8; 8] = [4; 8];
 
     //    const STRIDES_SEQ: [SizedStride; 7] = [

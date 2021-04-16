@@ -1111,9 +1111,12 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8];
-    // pub const STRIDES: [u8; 4] = [8; 4];
-    // pub const STRIDES: [u8; 8] = [4; 8];
+    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8]; // 89ns
+    // pub const STRIDES: [u8; 6] = [4, 4, 6, 6, 6, 6]; // 86ns
+    // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3]; // 101ns
+    // pub const STRIDES: [u8; 4] = [8; 4]; // 165ns
+    // pub const STRIDES: [u8; 8] = [4; 8]; // 77ns
+    // pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4]; // 98ns
 
     pub fn new() -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
