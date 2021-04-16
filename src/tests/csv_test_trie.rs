@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 mod test {
     use crate::common::{NoMeta, Prefix, PrefixAs};
     use crate::common::Trie;
@@ -10,10 +12,10 @@ mod test {
     // use shrust::{Shell, ShellIO};
     // use std::io::prelude::*;
 
-    const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
-
     #[test]
     fn test_csv() {
+        const CSV_FILE_PATH: &str = "./data/uniq_pfx_asn_dfz_rnd.csv";
+
         fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Error>> {
             let file = File::open(CSV_FILE_PATH)?;
             let mut rdr = csv::Reader::from_reader(file);
@@ -65,6 +67,8 @@ mod test {
         let len_max = 32;
 
         let start = std::time::Instant::now();
+        let mut counter: u128 = 0;
+        let mut f_pfx= None;
         for i_net in 0..inet_max {
             for s_len in 0..len_max {
                 for ii_net in 0..inet_max {
@@ -72,11 +76,14 @@ mod test {
                         std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
                         s_len,
                     );
-                    trie.match_longest_prefix(&pfx);
+                    f_pfx = trie.match_longest_prefix(&pfx);
+                    counter += 1;
                 }
             }
         }
         let ready = std::time::Instant::now();
+        println!("last f_pfx {:?} ", f_pfx);
+        println!("no of searches {}", counter);
 
         println!(
             "finished searching {} prefixes in {} seconds...",
