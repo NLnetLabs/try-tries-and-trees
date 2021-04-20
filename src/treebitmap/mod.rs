@@ -1041,6 +1041,7 @@ where
     T: Debug,
     AF: AddressFamily + Debug + PrimInt,
 {
+    pub strides: Vec<u8>,
     root: SizedStrideNode<'a, AF, T>,
     pub stats: Vec<StrideStats>,
 }
@@ -1051,7 +1052,7 @@ where
     AF: AddressFamily + Debug + PrimInt,
 {
     // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3];
-    pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4];
+    // pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4];
     // pub const STRIDES: [u8; 4] = [8; 4];
     // pub const STRIDES: [u8; 8] = [4; 8];
 
@@ -1065,22 +1066,32 @@ where
     //         SizedStride::Stride3,
     //     ];
 
-    pub fn new() -> TreeBitMap<'a, AF, T> {
+    pub fn new(strides_vec: Vec<u8>) -> TreeBitMap<'a, AF, T> {
         // Check if the strides division makes sense
-        assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
+        // let mut strides: xw[u8; STRIDESIZE] = [0; STRIDESIZE];
+        let mut strides: Vec<u8> = vec![];
+        let mut strides_sum = 0;
+        for s in strides_vec.iter().cycle().enumerate() {
+            strides.push(s.1.to_owned());
+            strides_sum += s.1;
+            if strides_sum >= AF::BITS - 1 {
+                break;
+            }
+        }
+        assert_eq!(strides.iter().fold(0, |acc, s| { acc + s }), AF::BITS);
 
         let mut stride_stats: Vec<StrideStats> = vec![
-            StrideStats::new(SizedStride::Stride3, Self::STRIDES.len() as u8), // 0
-            StrideStats::new(SizedStride::Stride4, Self::STRIDES.len() as u8), // 1
-            StrideStats::new(SizedStride::Stride5, Self::STRIDES.len() as u8), // 2
-            StrideStats::new(SizedStride::Stride6, Self::STRIDES.len() as u8), // 3
-            StrideStats::new(SizedStride::Stride7, Self::STRIDES.len() as u8), // 4
-            StrideStats::new(SizedStride::Stride8, Self::STRIDES.len() as u8), // 5
+            StrideStats::new(SizedStride::Stride3, strides.len() as u8), // 0
+            StrideStats::new(SizedStride::Stride4, strides.len() as u8), // 1
+            StrideStats::new(SizedStride::Stride5, strides.len() as u8), // 2
+            StrideStats::new(SizedStride::Stride6, strides.len() as u8), // 3
+            StrideStats::new(SizedStride::Stride7, strides.len() as u8), // 4
+            StrideStats::new(SizedStride::Stride8, strides.len() as u8), // 5
         ];
 
         let node: SizedStrideNode<'a, AF, T>;
 
-        match Self::STRIDES[0] {
+        match strides[0] {
             3 => {
                 node = SizedStrideNode::Stride3(TreeBitMapNode {
                     bit_id: 0,
@@ -1147,6 +1158,7 @@ where
         };
 
         TreeBitMap {
+            strides,
             root: node,
             stats: stride_stats,
         }
@@ -1192,7 +1204,7 @@ where
         let mut stride_end: u8 = 0;
         let mut node = &mut self.root;
         let mut level: u8 = 0;
-        let mut strides = Self::STRIDES.iter().peekable();
+        let mut strides = self.strides.iter().peekable();
         while let Some(stride) = strides.next() {
             stride_end += stride;
 
@@ -1305,7 +1317,7 @@ where
                     pfx,
                     strides.peek(),
                     pfx.len <= stride_end,
-                )  {
+                ) {
                     (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[4].inc(level);
@@ -1328,7 +1340,7 @@ where
                     pfx,
                     strides.peek(),
                     pfx.len <= stride_end,
-                )  {
+                ) {
                     (Some((n, has_created_node)), has_created_pfx) => {
                         if has_created_node {
                             self.stats[5].inc(level);
@@ -1364,7 +1376,7 @@ where
         // println!("             0   4   8   12  16  20  24  28  32");
         // println!("             |---|---|---|---|---|---|---|---|");
 
-        for stride in Self::STRIDES.iter() {
+        for stride in self.strides.iter() {
             stride_end += stride;
 
             let nibble_len = if search_pfx.len < stride_end {

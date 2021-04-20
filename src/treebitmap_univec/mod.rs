@@ -850,7 +850,7 @@ where
         nibble: u32,
         nibble_len: u8,
         // pfx: Prefix<AF, T>,
-        next_stride: Option<&&u8>,
+        next_stride: Option<&u8>,
         is_last_stride: bool,
     ) -> NewNodeOrIndex<AF> {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
@@ -1101,6 +1101,7 @@ where
     AF: AddressFamily + Debug,
 {
     // root: SizedStrideNode<AF, T>,
+    pub strides: Vec<u8>,
     pub stats: Vec<StrideStats>,
     pub nodes: Vec<SizedStrideNode<AF>>,
     pub prefixes: Vec<Prefix<AF, T>>,
@@ -1111,29 +1112,38 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8]; // 89ns
+    // pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8]; // 89ns
     // pub const STRIDES: [u8; 6] = [4, 4, 6, 6, 6, 6]; // 86ns
     // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3]; // 101ns
     // pub const STRIDES: [u8; 4] = [8; 4]; // 165ns
     // pub const STRIDES: [u8; 8] = [4; 8]; // 77ns
     // pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4]; // 98ns
 
-    pub fn new() -> TreeBitMap<AF, T> {
+    pub fn new(_strides_vec: Vec<u8>) -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
-        assert!(Self::STRIDES.iter().fold(0, |acc, s| { acc + s }) == AF::BITS);
+        let mut strides = vec![];
+        let mut strides_sum = 0;
+        for s in _strides_vec.iter().cycle() {
+            strides.push(*s);
+            strides_sum += s;
+            if strides_sum >= AF::BITS - 1 {
+                break;
+            }
+        }
+        assert_eq!(strides.iter().fold(0, |acc, s| { acc + s }), AF::BITS);
 
         let mut stride_stats: Vec<StrideStats> = vec![
-            StrideStats::new(SizedStride::Stride3, Self::STRIDES.len() as u8), // 0
-            StrideStats::new(SizedStride::Stride4, Self::STRIDES.len() as u8), // 1
-            StrideStats::new(SizedStride::Stride5, Self::STRIDES.len() as u8), // 2
-            StrideStats::new(SizedStride::Stride6, Self::STRIDES.len() as u8), // 3
-            StrideStats::new(SizedStride::Stride7, Self::STRIDES.len() as u8), // 4
-            StrideStats::new(SizedStride::Stride8, Self::STRIDES.len() as u8), // 5
+            StrideStats::new(SizedStride::Stride3, strides.len() as u8), // 0
+            StrideStats::new(SizedStride::Stride4, strides.len() as u8), // 1
+            StrideStats::new(SizedStride::Stride5, strides.len() as u8), // 2
+            StrideStats::new(SizedStride::Stride6, strides.len() as u8), // 3
+            StrideStats::new(SizedStride::Stride7, strides.len() as u8), // 4
+            StrideStats::new(SizedStride::Stride8, strides.len() as u8), // 5
         ];
 
         let node: SizedStrideNode<AF>;
 
-        match Self::STRIDES[0] {
+        match strides[0] {
             3 => {
                 node = SizedStrideNode::Stride3(TreeBitMapNode {
                     bit_id: 0,
@@ -1200,6 +1210,8 @@ where
         };
 
         TreeBitMap {
+            // strides: Self::STRIDES.iter().map(|s| *s).collect(),
+            strides,
             stats: stride_stats,
             nodes: vec![node],
             prefixes: vec![],
@@ -1248,17 +1260,21 @@ where
         let mut node = std::mem::take(self.retrieve_node_mut(cur_i).unwrap());
 
         let mut level: u8 = 0;
-        let mut strides = Self::STRIDES.iter().peekable();
+        // let ss = self.strides.clone();
+        // let mut strides = ss.iter().peekable();
         let pfx_len = pfx.len.clone();
         let pfx_net = pfx.net.clone();
 
-        while let Some(stride) = strides.next() {
+        loop {
+            let stride = self.strides[level as usize];
+            let next_stride = self.strides.get((level + 1) as usize);
+
             stride_end += stride;
 
             let nibble_len = if pfx_len < stride_end {
                 stride + pfx_len - stride_end
             } else {
-                *stride
+                stride
             };
 
             let nibble = AF::get_nibble(pfx_net, stride_end - stride, nibble_len);
@@ -1267,7 +1283,7 @@ where
 
             let (next_node_idx, cur_node) = match node {
                 SizedStrideNode::Stride3(mut current_node) => match current_node
-                    .eval_node_or_prefix_at(nibble, nibble_len, strides.peek(), is_last_stride)
+                    .eval_node_or_prefix_at(nibble, nibble_len, next_stride, is_last_stride)
                 {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
                         self.stats[0].inc(level);
@@ -1310,7 +1326,7 @@ where
                         // whereas the last stride stops at the end of the prefix length.
                         // `is_last_stride` is an indicator for the upsert function to write the prefix in the
                         // node's vec.
-                        strides.peek(),
+                        next_stride,
                         pfx_len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
@@ -1347,7 +1363,7 @@ where
                     .eval_node_or_prefix_at(
                         nibble,
                         nibble_len,
-                        strides.peek(),
+                        next_stride,
                         pfx_len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
@@ -1384,7 +1400,7 @@ where
                     .eval_node_or_prefix_at(
                         nibble,
                         nibble_len,
-                        strides.peek(),
+                        next_stride,
                         pfx_len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
@@ -1421,7 +1437,7 @@ where
                     .eval_node_or_prefix_at(
                         nibble,
                         nibble_len,
-                        strides.peek(),
+                        next_stride,
                         pfx_len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
@@ -1457,7 +1473,7 @@ where
                     .eval_node_or_prefix_at(
                         nibble,
                         nibble_len,
-                        strides.peek(),
+                        next_stride,
                         pfx_len <= stride_end,
                     ) {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
@@ -1551,7 +1567,7 @@ where
         // println!("             0   4   8   12  16  20  24  28  32");
         // println!("             |---|---|---|---|---|---|---|---|");
 
-        for stride in Self::STRIDES.iter() {
+        for stride in self.strides.iter() {
             stride_end += stride;
 
             let nibble_len = if search_pfx.len < stride_end {
@@ -1721,7 +1737,7 @@ where
         // println!("             0   4   8   12  16  20  24  28  32");
         // println!("             |---|---|---|---|---|---|---|---|");
 
-        for stride in Self::STRIDES.iter() {
+        for stride in self.strides.iter() {
             stride_end += stride;
 
             let nibble_len = if search_pfx.len < stride_end {

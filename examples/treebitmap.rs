@@ -1,9 +1,10 @@
-use trie::common::{Prefix, PrefixAs, NoMeta};
+use trie::common::{NoMeta, Prefix, PrefixAs};
 use trie::treebitmap::TreeBitMap;
 type Prefix4<'a> = Prefix<u32, NoMeta>;
 
 fn main() {
-    let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new();
+    let strides = vec![4];
+    let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new(strides);
     let pfxs = vec![
         Prefix::<u32, PrefixAs>::new(0b0000_0000_0000_0000_0000_0000_0000_0000_u32, 0),
         Prefix::<u32, PrefixAs>::new(0b1111_1111_1111_1111_1111_1111_1111_1111_u32, 32),
@@ -101,7 +102,6 @@ fn main() {
         Prefix::new(std::net::Ipv4Addr::new(255, 255, 255, 255).into(), 32),
         Prefix::new(std::net::Ipv4Addr::new(1, 0, 0, 0).into(), 24),
         Prefix::new(std::net::Ipv4Addr::new(1, 0, 128, 0).into(), 24),
-
     ] {
         println!("search for: {:?}", spfx);
         let s_spfx = tree_bitmap.match_longest_prefix(&spfx);

@@ -43,8 +43,9 @@ fn load_prefixes(pfxs: &mut Vec<Prefix<u32, PrefixAs>>) -> Result<(), Box<dyn Er
 }
 
 fn main() {
+    let strides = vec![4];
     let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-    let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new();
+    let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new(strides);
 
     if let Err(err) = load_prefixes(&mut pfxs) {
         println!("error running example: {}", err);
@@ -92,7 +93,7 @@ fn main() {
 
     println!(
         "stride division  {:?}",
-        TreeBitMap::<u32, PrefixAs>::STRIDES
+        tree_bitmap.strides
     );
     for s in &tree_bitmap.stats {
         println!("{:?}", s);
@@ -107,7 +108,7 @@ fn main() {
     let mut stride_bits = [0, 0];
     const SCALE: u32 = 3500;
 
-    for stride in TreeBitMap::<u32, PrefixAs>::STRIDES.iter().enumerate() {
+    for stride in tree_bitmap.strides.iter().enumerate() {
         // let level = stride.0;
         stride_bits = [stride_bits[1] + 1, stride_bits[1] + stride.1];
         let nodes_num = tree_bitmap
