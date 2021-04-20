@@ -34,79 +34,90 @@ mod test {
         }
 
         println!("[");
-        for n in 1..6 {
-            let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-            let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new();
+        for strides in [
+            vec![8],
+            vec![4],
+            vec![6, 6, 6, 6, 4, 4],
+            vec![3, 4, 4, 6, 7, 8],
+        ]
+        .iter()
+        {
+            for n in 1..6 {
+                let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
+                // let strides = vec![4];
+                let mut tree_bitmap: TreeBitMap<u32, PrefixAs> =
+                    TreeBitMap::new(strides.to_owned());
 
-            if let Err(err) = load_prefixes(&mut pfxs) {
-                println!("error running example: {}", err);
-                process::exit(1);
-            }
-            // println!("finished/ loading {} prefixes...", pfxs.len());
-            let start = std::time::Instant::now();
+                if let Err(err) = load_prefixes(&mut pfxs) {
+                    println!("error running example: {}", err);
+                    process::exit(1);
+                }
+                // println!("finished/ loading {} prefixes...", pfxs.len());
+                let start = std::time::Instant::now();
 
-            for pfx in pfxs.iter() {
-                tree_bitmap.insert(pfx);
-            }
-            let ready = std::time::Instant::now();
-            let dur_insert_nanos = ready.checked_duration_since(start).unwrap().as_nanos();
-            let inserts_num = pfxs.len();
+                for pfx in pfxs.iter() {
+                    tree_bitmap.insert(pfx);
+                }
+                let ready = std::time::Instant::now();
+                let dur_insert_nanos = ready.checked_duration_since(start).unwrap().as_nanos();
+                let inserts_num = pfxs.len();
 
-            // println!(
-            //     "finished building tree in {} msecs...",
-            //     ready.checked_duration_since(start).unwrap().as_millis()
-            // );
+                // println!(
+                //     "finished building tree in {} msecs...",
+                //     ready.checked_duration_since(start).unwrap().as_millis()
+                // );
 
-            // println!("prefix vec size {}", tree_bitmap.prefixes.len());
+                // println!("prefix vec size {}", tree_bitmap.prefixes.len());
 
-            // println!("finished building tree...");
+                // println!("finished building tree...");
 
-            // println!(
-            //     "stride division  {:?}",
-            //     TreeBitMap::<u32, PrefixAs>::STRIDES
-            // );
-            // for s in &tree_bitmap.stats {
-            //     println!("{:?}", s);
-            // }
+                // println!(
+                //     "stride division  {:?}",
+                //     TreeBitMap::<u32, PrefixAs>::STRIDES
+                // );
+                // for s in &tree_bitmap.stats {
+                //     println!("{:?}", s);
+                // }
 
-            let inet_max = 255;
-            let len_max = 32;
+                let inet_max = 255;
+                let len_max = 32;
 
-            let start = std::time::Instant::now();
-            for i_net in 0..inet_max {
-                for s_len in 0..len_max {
-                    for ii_net in 0..inet_max {
-                        let pfx = Prefix::<u32, NoMeta>::new(
-                            std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
-                            s_len,
-                        );
-                        tree_bitmap.match_longest_prefix(&pfx);
+                let start = std::time::Instant::now();
+                for i_net in 0..inet_max {
+                    for s_len in 0..len_max {
+                        for ii_net in 0..inet_max {
+                            let pfx = Prefix::<u32, NoMeta>::new(
+                                std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
+                                s_len,
+                            );
+                            tree_bitmap.match_longest_prefix(&pfx);
+                        }
                     }
                 }
+                let ready = std::time::Instant::now();
+
+                let dur_search_nanos = ready.checked_duration_since(start).unwrap().as_nanos();
+                let searches_num = inet_max as u128 * inet_max as u128 * len_max as u128;
+
+                println!("{{");
+                println!("\"type\": \"treebitmap_localvec\",");
+                println!("\"strides\": {:?},", tree_bitmap.strides);
+                println!("\"run_no\": {},", n);
+                println!("\"inserts_num\": {},", inserts_num);
+                println!("\"insert_duration_nanos\": {},", dur_insert_nanos);
+                println!(
+                    "\"insert_time_nanos\": {},",
+                    dur_insert_nanos as f32 / inserts_num as f32
+                );
+                println!("\"searches_num\": {}", searches_num);
+                println!("\"search_duration_nanos\": {},", dur_search_nanos);
+                println!(
+                    "\"search_time_nanos\": {}",
+                    dur_search_nanos as f32 / searches_num as f32
+                );
+                println!("}}{}", if n != 5 { "," } else { "" });
             }
-            let ready = std::time::Instant::now();
-
-            let dur_search_nanos = ready.checked_duration_since(start).unwrap().as_nanos();
-            let searches_num = inet_max as u128 * inet_max as u128 * len_max as u128;
-
-            println!("{{");
-            println!("\"type\": \"treebitmap_localvec\",");
-            println!("\"strides\": {:?},", TreeBitMap::<u32, PrefixAs>::STRIDES);
-            println!("\"run_no\": {},", n);
-            println!("\"inserts_num\": {},", inserts_num);
-            println!("\"insert_duration_nanos\": {},", dur_insert_nanos);
-            println!(
-                "\"insert_time_nanos\": {},",
-                dur_insert_nanos as f32 / inserts_num as f32
-            );
-            println!("\"searches_num\": {}", searches_num);
-            println!("\"search_duration_nanos\": {},", dur_search_nanos);
-            println!(
-                "\"search_time_nanos\": {}",
-                dur_search_nanos as f32 / searches_num as f32
-            );
-            println!("}}{}", if n != 5 { "," } else { "" });
+            println!("]");
         }
-        println!("]");
     }
 }
