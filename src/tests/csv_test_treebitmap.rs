@@ -44,6 +44,7 @@ mod test {
         .iter()
         .enumerate()
         {
+            println!("[");
             for n in 1..6 {
                 let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
                 // let strides = vec![4];
@@ -128,5 +129,6 @@ mod test {
                 }
             );
         }
+        println!("]");
     }
 }
