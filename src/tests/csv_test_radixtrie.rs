@@ -69,6 +69,8 @@ mod test {
             let len_max = 32;
 
             let start = std::time::Instant::now();
+            let mut f_pfx = None;
+
             for i_net in 0..inet_max {
                 for s_len in 0..len_max {
                     for ii_net in 0..inet_max {
@@ -76,7 +78,7 @@ mod test {
                             std::net::Ipv4Addr::new(i_net, ii_net, 0, 0).into(),
                             s_len,
                         );
-                        radix_trie.match_longest_prefix(&pfx);
+                        f_pfx = radix_trie.match_longest_prefix(&pfx);
                     }
                 }
             }
@@ -95,6 +97,7 @@ mod test {
                 dur_insert_nanos as f32 / inserts_num as f32
             );
             println!("\"searches_num\": {},", searches_num);
+            println!("\"last_pfx\": \"{:?}\",", f_pfx);
             println!("\"search_duration_nanos\": {},", dur_search_nanos);
             println!(
                 "\"search_time_nanos\": {}",
