@@ -1419,7 +1419,7 @@ where
                         current_node
                             .pfx_vec
                             .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
-                        current_node.pfx_vec.sort();
+                        current_node.pfx_vec.sort_unstable();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride6(current_node),
