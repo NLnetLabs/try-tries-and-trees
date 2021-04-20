@@ -109,7 +109,7 @@ mod test {
                     "\"insert_time_nanos\": {},",
                     dur_insert_nanos as f32 / inserts_num as f32
                 );
-                println!("\"searches_num\": {}", searches_num);
+                println!("\"searches_num\": {},", searches_num);
                 println!("\"search_duration_nanos\": {},", dur_search_nanos);
                 println!(
                     "\"search_time_nanos\": {}",
