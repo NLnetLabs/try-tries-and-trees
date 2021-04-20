@@ -3,6 +3,8 @@ use crate::common::{AddressFamily, NoMeta, Prefix};
 use std::cmp::Ordering;
 use std::fmt::{Binary, Debug};
 
+use smallvec::{smallvec, SmallVec};
+
 // pub struct BitMap8stride(u8, 8);
 #[derive(Copy, Clone)]
 pub struct U256(u128, u128);
@@ -622,12 +624,12 @@ where
     //, referenced by (bit_id, global prefix index)
     // We need the AF typed value to sort the vec
     // that is stored in the node.
-    pfx_vec: Vec<(AF, u32)>,
+    pfx_vec: SmallVec<[(AF, u32); 32]>,
     // The vec of child nodes hosted by this
     // node, referenced by (bit_id, global vec index)
     // We need the u16 (bit_id) to sort the
     // vec that's stored in the node.
-    ptr_vec: Vec<(u16, u32)>,
+    ptr_vec: SmallVec<[(u16, u32); 15]>,
 }
 
 impl<AF> Default for SizedStrideNode<AF>
@@ -639,8 +641,8 @@ where
             bit_id: 0,
             ptrbitarr: 0,
             pfxbitarr: 0,
-            pfx_vec: vec![],
-            ptr_vec: vec![],
+            pfx_vec: smallvec![],
+            ptr_vec: smallvec![],
         })
     }
 }
@@ -887,8 +889,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride3::zero(),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     4_u8 => {
@@ -896,8 +898,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride4::zero(),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     5_u8 => {
@@ -905,8 +907,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride5 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride5::zero(),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     6_u8 => {
@@ -914,8 +916,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride6 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride6::zero(),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     7_u8 => {
@@ -923,8 +925,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: 0_u128,
                             pfxbitarr: U256(0_u128, 0_u128),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     8_u8 => {
@@ -932,8 +934,8 @@ where
                             bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: U256(0_u128, 0_u128),
                             pfxbitarr: U512(0_u128, 0_u128, 0_u128, 0_u128),
-                            pfx_vec: vec![],
-                            ptr_vec: vec![],
+                            pfx_vec: smallvec![],
+                            ptr_vec: smallvec![],
                         });
                     }
                     _ => {
@@ -1149,8 +1151,8 @@ where
                     bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[0].inc(0);
             }
@@ -1159,8 +1161,8 @@ where
                     bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[1].inc(0);
             }
@@ -1169,8 +1171,8 @@ where
                     bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[2].inc(0);
             }
@@ -1179,8 +1181,8 @@ where
                     bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[3].inc(0);
             }
@@ -1189,8 +1191,8 @@ where
                     bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: U256(0, 0),
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[4].inc(0);
             }
@@ -1199,8 +1201,8 @@ where
                     bit_id: 0,
                     ptrbitarr: U256(0, 0),
                     pfxbitarr: U512(0, 0, 0, 0),
-                    ptr_vec: vec![],
-                    pfx_vec: vec![],
+                    ptr_vec: smallvec![],
+                    pfx_vec: smallvec![],
                 });
                 stride_stats[5].inc(0);
             }
@@ -1360,12 +1362,8 @@ where
                     }
                 },
                 SizedStrideNode::Stride5(mut current_node) => match current_node
-                    .eval_node_or_prefix_at(
-                        nibble,
-                        nibble_len,
-                        next_stride,
-                        pfx_len <= stride_end,
-                    ) {
+                    .eval_node_or_prefix_at(nibble, nibble_len, next_stride, pfx_len <= stride_end)
+                {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
                         self.stats[2].inc(level);
                         let i = self.store_node(n);
@@ -1397,12 +1395,8 @@ where
                     }
                 },
                 SizedStrideNode::Stride6(mut current_node) => match current_node
-                    .eval_node_or_prefix_at(
-                        nibble,
-                        nibble_len,
-                        next_stride,
-                        pfx_len <= stride_end,
-                    ) {
+                    .eval_node_or_prefix_at(nibble, nibble_len, next_stride, pfx_len <= stride_end)
+                {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
                         self.stats[3].inc(level);
                         let i = self.store_node(n);
@@ -1434,12 +1428,8 @@ where
                     }
                 },
                 SizedStrideNode::Stride7(mut current_node) => match current_node
-                    .eval_node_or_prefix_at(
-                        nibble,
-                        nibble_len,
-                        next_stride,
-                        pfx_len <= stride_end,
-                    ) {
+                    .eval_node_or_prefix_at(nibble, nibble_len, next_stride, pfx_len <= stride_end)
+                {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
                         self.stats[4].inc(level);
                         let i = self.store_node(n);
@@ -1470,12 +1460,8 @@ where
                     }
                 },
                 SizedStrideNode::Stride8(mut current_node) => match current_node
-                    .eval_node_or_prefix_at(
-                        nibble,
-                        nibble_len,
-                        next_stride,
-                        pfx_len <= stride_end,
-                    ) {
+                    .eval_node_or_prefix_at(nibble, nibble_len, next_stride, pfx_len <= stride_end)
+                {
                     NewNodeOrIndex::NewNode(n, bit_id) => {
                         self.stats[5].inc(level);
                         let i = self.store_node(n);
