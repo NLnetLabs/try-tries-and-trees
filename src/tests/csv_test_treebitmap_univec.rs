@@ -36,17 +36,18 @@ mod test {
         }
 
         println!("[");
-        for strides in [
+        let strides_vec = [
             vec![8],
             vec![4],
             vec![6, 6, 6, 6, 4, 4],
             vec![3, 4, 4, 6, 7, 8],
-        ]
-        .iter()
-        {
+        ];
+        for strides in strides_vec.iter().enumerate() {
+            println!("[");
             for n in 1..6 {
                 let mut pfxs: Vec<Prefix<u32, PrefixAs>> = vec![];
-                let mut tree_bitmap: TreeBitMap<u32, PrefixAs> = TreeBitMap::new(strides.to_owned());
+                let mut tree_bitmap: TreeBitMap<u32, PrefixAs> =
+                    TreeBitMap::new(strides.1.to_owned());
 
                 if let Err(err) = load_prefixes(&mut pfxs) {
                     println!("error running example: {}", err);
@@ -117,7 +118,7 @@ mod test {
                     "\"insert_time_nanos\": {},",
                     dur_insert_nanos as f32 / inserts_num as f32
                 );
-                println!("\"searches_num\": {}", searches_num);
+                println!("\"searches_num\": {},", searches_num);
                 println!("\"search_duration_nanos\": {},", dur_search_nanos);
                 println!(
                     "\"search_time_nanos\": {}",
@@ -125,6 +126,15 @@ mod test {
                 );
                 println!("}}{}", if n != 5 { "," } else { "" });
             }
+
+            println!(
+                "]{}",
+                if strides.0 != strides_vec.len() - 1 {
+                    ","
+                } else {
+                    ""
+                }
+            );
         }
         println!("]");
     }

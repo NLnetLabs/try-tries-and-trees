@@ -101,8 +101,8 @@ mod test {
                 "\"insert_time_nanos\": {},",
                 dur_insert_nanos as f32 / inserts_num as f32
             );
-            println!("\"searches_num\": {}", counter);
-            println!("\"last_pfx\": {:?}", f_pfx);
+            println!("\"searches_num\": {},", counter);
+            println!("\"last_pfx\": \"{:?}\",", f_pfx);
             println!("\"search_duration_nanos\": {},", dur_search_nanos);
             println!(
                 "\"search_time_nanos\": {}",
