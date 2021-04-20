@@ -624,12 +624,12 @@ where
     //, referenced by (bit_id, global prefix index)
     // We need the AF typed value to sort the vec
     // that is stored in the node.
-    pfx_vec: SmallVec<[(AF, u32); 32]>,
+    pfx_vec: SmallVec<[(AF, u32); 4]>,
     // The vec of child nodes hosted by this
     // node, referenced by (bit_id, global vec index)
     // We need the u16 (bit_id) to sort the
     // vec that's stored in the node.
-    ptr_vec: SmallVec<[(u16, u32); 15]>,
+    ptr_vec: SmallVec<[(u16, u32); 4]>,
 }
 
 impl<AF> Default for SizedStrideNode<AF>
