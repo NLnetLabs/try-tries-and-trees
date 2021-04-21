@@ -334,4 +334,26 @@ where
         // println!("{:?}", match_pfx);
         match_pfx
     }
+
+    fn traverse(node: Box<TrieNode<'a, AF, T>>, nodes_num: usize, prefixes_num: usize) -> (usize, usize) {
+        let mut result = (nodes_num, prefixes_num);
+        if node.left.is_some() {
+            result.0 += 1;
+            result = Self::traverse(node.left.unwrap(), result.0, result.1);
+        }
+        if node.right.is_some() {
+            result.0 += 1;
+            result = Self::traverse(node.right.unwrap(), result.0, result.1);
+        }
+        if node.prefix.is_some() {
+            result.1 += 1;
+        }
+
+        result
+    }
+
+    pub fn traverse_count(self) -> (usize, usize) {
+        let root = Box::new(self.0);
+        Self::traverse(root, 0, 0)
+    }
 }
