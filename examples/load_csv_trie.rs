@@ -135,28 +135,4 @@ fn main() {
     });
 
     shell.run_loop(&mut ShellIO::default());
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(7, 0, 0, 0).into(), 22);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(103, 108, 187, 247).into(), 24);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(103, 108, 187, 247).into(), 23);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(214,10,23,0).into(), 24);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(214,10,23,0).into(), 0);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
-
-    // let spfx = Prefix::<u32, NoMeta>::new(std::net::Ipv4Addr::new(0,0,0,0).into(), 0);
-    // let fpfx = trie.match_longest_prefix(&spfx);
-    // println!("search for: {:?}, found {:?}", spfx, fpfx);
 }
