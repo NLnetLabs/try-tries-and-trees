@@ -32,12 +32,21 @@ where
     }
 }
 
-#[derive(Debug)]
 pub struct LevelStats {
     pub level: u8,
     pub compression: u16,
     pub nodes_num: u32,
     pub prefixes_num: u32,
+}
+
+impl fmt::Debug for LevelStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{{\"level\":{},\"nodes_num\":{},\"prefixes_num\":{}}}",
+            self.level, self.nodes_num, self.prefixes_num
+        )
+    }
 }
 
 #[derive(Debug)]
