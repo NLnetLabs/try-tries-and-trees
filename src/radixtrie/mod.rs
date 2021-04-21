@@ -133,7 +133,7 @@ where
                         if next_node.prefix.is_none() {
                             self.1[level as usize].prefixes_num += 1;
                         }
-                        next_node.prefix = Some(&pfx);                        
+                        next_node.prefix = Some(&pfx);
                         break;
                     }
                     // Check if the to-be-inserted prefix is aligned  the next_node AND it's less
@@ -333,27 +333,28 @@ where
 
     fn traverse(
         node: Box<RadixTrieNode<'a, AF, T>>,
-        nodes_num: usize,
-        prefixes_num: usize,
-    ) -> (usize, usize) {
-        let mut result = (nodes_num, prefixes_num);
+        mut levels: Vec<(usize, usize)>,
+    ) -> Vec<(usize, usize)> {
+        let l = node.bit_pos as usize;
+        
         if node.left.is_some() {
-            result.0 += 1;
-            result = Self::traverse(node.left.unwrap(), result.0, result.1);
+            levels[l].0 += 1;
+            levels = Self::traverse(node.left.unwrap(), levels);
         }
         if node.right.is_some() {
-            result.0 += 1;
-            result = Self::traverse(node.right.unwrap(), result.0, result.1);
+            levels[l].0 += 1;
+            levels = Self::traverse(node.right.unwrap(), levels);
         }
         if node.prefix.is_some() {
-            result.1 += 1;
+            levels[l].1 += 1;
         }
 
-        result
+        levels
     }
 
-    pub fn traverse_count(self) -> (usize, usize) {
+    pub fn traverse_count(self) -> Vec<(usize, usize)> {
         let root = Box::new(self.0);
-        Self::traverse(root, 0, 0)
+        let levels: Vec<(usize, usize)> = (0..AF::BITS + 1).map(|_| (0, 0)).collect();
+        Self::traverse(root, levels)
     }
 }
