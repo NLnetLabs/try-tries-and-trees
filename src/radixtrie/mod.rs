@@ -105,7 +105,7 @@ where
                 _ => &mut cursor.right,
             };
 
-            match &next_cursor {
+            match &mut next_cursor {
                 // No node in the direction we're heading, so we can create a new leaf node
                 // with our prefix length and the prefix.
                 None => {
@@ -130,6 +130,10 @@ where
                         && pfx.net >> (AF::BITS - pfx.len) as usize == next_node.bit_id
                     {
                         // This prefix already exists here, that's the end
+                        if next_node.prefix.is_none() {
+                            self.1[level as usize].prefixes_num += 1;
+                        }
+                        next_node.prefix = Some(&pfx);                        
                         break;
                     }
                     // Check if the to-be-inserted prefix is aligned  the next_node AND it's less
@@ -327,7 +331,11 @@ where
         match_pfx
     }
 
-    fn traverse(node: Box<RadixTrieNode<'a, AF, T>>, nodes_num: usize, prefixes_num: usize) -> (usize, usize) {
+    fn traverse(
+        node: Box<RadixTrieNode<'a, AF, T>>,
+        nodes_num: usize,
+        prefixes_num: usize,
+    ) -> (usize, usize) {
         let mut result = (nodes_num, prefixes_num);
         if node.left.is_some() {
             result.0 += 1;
