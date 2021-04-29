@@ -55,11 +55,11 @@ fn main() {
             println!("error running example: {}", err);
             process::exit(1);
         }
-        
+
         for pfx in pfxs.iter() {
             tree_bitmap.insert(pfx);
         }
-  
+
         let total_nodes = tree_bitmap.stats.iter().fold(0, |mut acc, c| {
             acc += c.created_nodes.iter().fold(0, |mut sum, l| {
                 sum += l.count;
@@ -84,8 +84,10 @@ fn main() {
         );
         println!(
             "\"nodes_mem_kb\": {},",
-            total_nodes * std::mem::size_of::<trie::treebitmap::SizedStrideNode<u32, PrefixAs>>()
-                / 1024
+            (total_nodes * std::mem::size_of::<trie::treebitmap::SizedStrideNode<u32, PrefixAs>>()
+                + total_prefixes * 8
+                + total_nodes * 8)
+                / 1024 // 8 bytes is the size of a 64 bits pointer.
         );
         println!("\"total_prefixes\": {:?},", total_prefixes);
         println!(

@@ -76,8 +76,10 @@ fn main() {
         );
         println!(
             "\"nodes_mem_kb\": {},",
-            total_nodes * std::mem::size_of::<trie::treebitmap_univec::SizedStrideNode<u32>>()
-                / 1024
+            (total_nodes * std::mem::size_of::<trie::treebitmap_univec::SizedStrideNode<u32>>()
+                + tree_bitmap.prefixes.len() * 5
+                + total_nodes * 5)
+                / 1024 // 5 is the size of a (u32, u8)
         );
         println!("\"total_prefixes\": {:?},", tree_bitmap.prefixes.len());
         println!(
