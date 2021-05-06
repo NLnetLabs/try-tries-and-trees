@@ -333,36 +333,28 @@ where
 
     fn traverse(
         node: Box<RadixTrieNode<'a, AF, T>>,
-        levels: &'a mut Vec<LevelStats>,
+        mut levels: &'a mut Vec<LevelStats>,
         mut depth: usize,
     ) -> (&'a mut Vec<LevelStats>, usize) {
-        let mut result = (levels, depth);
-        let mut l_depth = 0;
-        let mut r_depth = 0;
+        let my_depth = depth;
+        levels[my_depth].nodes_num += 1;
 
-        if node.left.is_some() || node.right.is_some() {
-            depth += 1;
-        }
-        match node.left {
-            Some(n) => {
-                result.0[depth].nodes_num += 1;
-                result = Self::traverse(n, result.0, depth);
-                l_depth = result.1 + 1;
-            }
-            None => {}
-        };
-        match node.right {
-            Some(n) => {
-                result.0[depth].nodes_num += 1;
-                result = Self::traverse(n, result.0, depth);
-                r_depth = result.1 + 1;
-            }
-            None => {}
-        };
         if node.prefix.is_some() {
-            result.0[depth].prefixes_num += 1;
+            levels[my_depth].prefixes_num += 1;
         }
-        (result.0, std::cmp::max(l_depth, r_depth))
+
+        if let Some(n) = node.left {
+            let result = Self::traverse(n, levels, my_depth + 1);
+            levels = result.0;
+            depth = result.1;
+        };
+        if let Some(n) = node.right {
+            let result = Self::traverse(n, levels, my_depth + 1);
+            levels = result.0;
+            depth = std::cmp::max(depth, result.1);
+        };
+
+        (levels, depth)
     }
 
     pub fn traverse_count(
