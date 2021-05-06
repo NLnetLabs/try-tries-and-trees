@@ -618,14 +618,14 @@ where
     bit_id: u16,
     ptrbitarr: <S as Stride>::PtrSize,
     pfxbitarr: S,
-    // The vec of prefixes hosted by this node
-    //, referenced by (bit_id, global prefix index)
+    // The vec of prefixes hosted by this node,
+    // referenced by (bit_id, global prefix index)
     // We need the AF typed value to sort the vec
     // that is stored in the node.
     pfx_vec: Vec<(AF, u32)>,
     // The vec of child nodes hosted by this
-    // node, referenced by (bit_id, global vec index)
-    // We need the u16 (bit_id) to sort the
+    // node, referenced by (ptrbitarr_index, global vec index)
+    // We need the u16 (ptrbitarr_index) to sort the
     // vec that's stored in the node.
     ptr_vec: Vec<(u16, u32)>,
 }
@@ -941,6 +941,14 @@ where
                     }
                 };
 
+                // we can return bit_pos.leading_zeros() since bit_pos is the bitmap that
+                // points to the current bit in ptrbitarr (it's **not** the prefix of the node!),
+                // so the number of zeros in front of it should always be unique and describes
+                // the index of this node in the ptrbitarr.
+                // ex.:
+                // In a stride3 (ptrbitarr lenght is 8):
+                // bit_pos 0001 0000
+                // so this is the fourth bit, so points to index = 3
                 return NewNodeOrIndex::NewNode(new_node, bit_pos.leading_zeros() as u16);
             }
         } else {
