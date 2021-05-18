@@ -780,7 +780,7 @@ where
                 }
             }
             SizedStrideNode::Stride8(n) => {
-                if let SizedStrideNode::Stride7(m) = other {
+                if let SizedStrideNode::Stride8(m) = other {
                     n.bit_id == m.bit_id
                 } else {
                     true
