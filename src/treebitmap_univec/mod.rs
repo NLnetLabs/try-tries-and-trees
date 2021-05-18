@@ -1,9 +1,7 @@
 use crate::common::{AddressFamily, NoMeta, Prefix};
-// use num::PrimInt;
 use std::cmp::Ordering;
 use std::fmt::{Binary, Debug};
 
-// pub struct BitMap8stride(u8, 8);
 #[derive(Copy, Clone)]
 pub struct U256(u128, u128);
 
@@ -336,11 +334,9 @@ impl Stride for Stride7 {
     fn get_bit_pos(nibble: u32, len: u8) -> Self {
         match 256 - ((1 << len) - 1) as u16 - nibble as u16 - 1 {
             n if n < 128 => {
-                // println!("n {}", n);
                 U256(0, 1 << n)
             }
             n => {
-                // println!("nn {}", n);
                 U256(1 << (n as u16 - 128), 0)
             }
         }
@@ -399,7 +395,6 @@ impl Stride for Stride7 {
         } else {
             lz
         };
-        // println!("lz {}", r);
         r
     }
 }
@@ -443,12 +438,10 @@ impl Stride for Stride8 {
     fn get_bit_pos(nibble: u32, len: u8) -> Self {
         match 512 - ((1 << len) - 1) as u16 - nibble as u16 - 1 {
             n if n < 128 => {
-                // println!("n {}", n);
                 U512(0, 0, 0, 1 << n)
             }
             n if n < 256 => U512(0, 0, 1 << (n as u16 - 128), 0),
             n if n < 384 => {
-                // println!("nn {}", n);
                 U512(0, 1 << (n as u16 - 256), 0, 0)
             }
             n => U512(1 << (n as u16 - 384), 0, 0, 0),
@@ -486,7 +479,6 @@ impl Stride for Stride8 {
             // all of bitmap.[1,2,3] will be shifted out of sight,
             // so we only have to count bitmap.0 zeroes then (after shifting of course).
             n => {
-                // print!("shr {}", n);
                 (bitmap.0 >> (n - 384)).count_ones() as usize - 1
             }
         }
@@ -615,7 +607,6 @@ where
     <S as Stride>::PtrSize: Debug + Binary + Copy,
     AF: AddressFamily,
 {
-    bit_id: u16,
     ptrbitarr: <S as Stride>::PtrSize,
     pfxbitarr: S,
     // The vec of prefixes hosted by this node,
@@ -636,173 +627,11 @@ where
 {
     fn default() -> Self {
         SizedStrideNode::Stride3(TreeBitMapNode {
-            bit_id: 0,
             ptrbitarr: 0,
             pfxbitarr: 0,
             pfx_vec: vec![],
             ptr_vec: vec![],
         })
-    }
-}
-
-impl<AF> Eq for SizedStrideNode<AF> where AF: AddressFamily {}
-
-impl<AF> Ord for SizedStrideNode<AF>
-where
-    AF: AddressFamily,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self {
-            SizedStrideNode::Stride3(nn) => {
-                if let SizedStrideNode::Stride3(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-            SizedStrideNode::Stride4(nn) => {
-                if let SizedStrideNode::Stride4(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-            SizedStrideNode::Stride5(nn) => {
-                if let SizedStrideNode::Stride5(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-            SizedStrideNode::Stride6(nn) => {
-                if let SizedStrideNode::Stride6(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-            SizedStrideNode::Stride7(nn) => {
-                if let SizedStrideNode::Stride7(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-            SizedStrideNode::Stride8(nn) => {
-                if let SizedStrideNode::Stride8(mm) = other {
-                    nn.ptrbitarr.cmp(&mm.ptrbitarr)
-                } else {
-                    0.cmp(&1)
-                }
-            }
-        }
-    }
-}
-
-impl<AF> PartialOrd for SizedStrideNode<AF>
-where
-    AF: AddressFamily,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self {
-            SizedStrideNode::Stride3(nn) => {
-                if let SizedStrideNode::Stride3(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&1))
-                }
-            }
-            SizedStrideNode::Stride4(nn) => {
-                if let SizedStrideNode::Stride4(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&1))
-                }
-            }
-            SizedStrideNode::Stride5(nn) => {
-                if let SizedStrideNode::Stride5(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&10))
-                }
-            }
-            SizedStrideNode::Stride6(nn) => {
-                if let SizedStrideNode::Stride6(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&10))
-                }
-            }
-            SizedStrideNode::Stride7(nn) => {
-                if let SizedStrideNode::Stride7(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&10))
-                }
-            }
-            SizedStrideNode::Stride8(nn) => {
-                if let SizedStrideNode::Stride8(mm) = other {
-                    Some(nn.bit_id.cmp(&mm.bit_id))
-                } else {
-                    Some(0.cmp(&10))
-                }
-            }
-        }
-    }
-}
-
-impl<AF> PartialEq for SizedStrideNode<AF>
-where
-    AF: AddressFamily,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            SizedStrideNode::Stride3(n) => {
-                if let SizedStrideNode::Stride3(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-            SizedStrideNode::Stride4(n) => {
-                if let SizedStrideNode::Stride4(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-            SizedStrideNode::Stride5(n) => {
-                if let SizedStrideNode::Stride5(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-            SizedStrideNode::Stride6(n) => {
-                if let SizedStrideNode::Stride6(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-            SizedStrideNode::Stride7(n) => {
-                if let SizedStrideNode::Stride7(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-            SizedStrideNode::Stride8(n) => {
-                if let SizedStrideNode::Stride7(m) = other {
-                    n.bit_id == m.bit_id
-                } else {
-                    true
-                }
-            }
-        }
-        // let SizedStrideNode::Stride4(n) = self;
-        // let SizedStrideNode::Stride4(m) = other;
-        // n.bit_id == m.bit_id
     }
 }
 
@@ -814,7 +643,6 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TreeBitMapNode")
-            .field("bit_id", &self.bit_id)
             .field("ptrbitarr", &self.ptrbitarr)
             .field("pfxbitarr", &self.pfxbitarr)
             .field("ptr_vec", &self.ptr_vec)
@@ -833,7 +661,6 @@ impl<AF, S> TreeBitMapNode<AF, S>
 where
     AF: AddressFamily,
     S: Stride + std::ops::BitAnd<Output = S> + std::ops::BitOr<Output = S>,
-    // + std::ops::Shr<Output = S>,
     <S as Stride>::PtrSize: Debug + Binary + Copy,
 {
     // Inspects the stride (nibble, nibble_len) to see it there's
@@ -849,17 +676,14 @@ where
         self: &mut Self,
         nibble: u32,
         nibble_len: u8,
-        // pfx: Prefix<AF, T>,
         next_stride: Option<&u8>,
         is_last_stride: bool,
     ) -> NewNodeOrIndex<AF> {
         let bit_pos = S::get_bit_pos(nibble, nibble_len);
         let new_node: SizedStrideNode<AF>;
 
-        // println!("n {:b} nl {}", nibble, nibble_len);
-
         // Check that we're not at the last stride (pfx.len <= stride_end),
-        // Note that next_stride may haxwve a value, but we still don't want to
+        // Note that next_stride may have a value, but we still don't want to
         // continue, because we've exceeded the length of the prefix to
         // be inserted.
         // Also note that a nibble_len < S::BITS (a smaller than full nibble)
@@ -876,15 +700,9 @@ where
                 self.ptrbitarr =
                     S::into_ptrbitarr_size(bit_pos | S::into_stride_size(self.ptrbitarr));
 
-                // println!(
-                //     "ptr[{:?}]: xxxxxxxxxxxxxxx{:0128b}x",
-                //     next_stride, self.ptrbitarr
-                // );
-                // println!("bit_id: {}", bit_pos.leading_zeros());
                 match next_stride.unwrap() {
                     3_u8 => {
                         new_node = SizedStrideNode::Stride3(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride3 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride3::zero(),
                             pfx_vec: vec![],
@@ -893,7 +711,6 @@ where
                     }
                     4_u8 => {
                         new_node = SizedStrideNode::Stride4(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride4 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride4::zero(),
                             pfx_vec: vec![],
@@ -902,7 +719,6 @@ where
                     }
                     5_u8 => {
                         new_node = SizedStrideNode::Stride5(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride5 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride5::zero(),
                             pfx_vec: vec![],
@@ -911,7 +727,6 @@ where
                     }
                     6_u8 => {
                         new_node = SizedStrideNode::Stride6(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: <Stride6 as Stride>::PtrSize::zero(),
                             pfxbitarr: Stride6::zero(),
                             pfx_vec: vec![],
@@ -920,7 +735,6 @@ where
                     }
                     7_u8 => {
                         new_node = SizedStrideNode::Stride7(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: 0_u128,
                             pfxbitarr: U256(0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -929,7 +743,6 @@ where
                     }
                     8_u8 => {
                         new_node = SizedStrideNode::Stride8(TreeBitMapNode {
-                            bit_id: bit_pos.leading_zeros() as u16,
                             ptrbitarr: U256(0_u128, 0_u128),
                             pfxbitarr: U512(0_u128, 0_u128, 0_u128, 0_u128),
                             pfx_vec: vec![],
@@ -956,40 +769,12 @@ where
             // and only if it doesn't exist already
             if self.pfxbitarr & bit_pos == <S as std::ops::BitAnd>::Output::zero() {
                 self.pfxbitarr = bit_pos | self.pfxbitarr;
-                // println!(
-                //     "pfx[{:?}]n[{}]: {:032b}",
-                //     next_stride, nibble_len, self.pfxbitarr
-                // );
 
-                // self.pfx_vec.push(pfx);
-                // self.pfx_vec.sort();
-                // println!("{:?}", self.pfx_vec);
                 return NewNodeOrIndex::NewPrefix;
             }
             return NewNodeOrIndex::ExistingPrefix;
         }
 
-        // println!("__bit_pos__: {:?}", bit_pos);
-        // println!(
-        //     "ptr[{:?}]: xxxxxxxxxxxxxxx{:0128b}x",
-        //     next_stride, self.ptrbitarr
-        // );
-        // println!("{:?}", self.ptr_vec);
-        // println!("{}", (Stride4::BITS >> 1) - nibble as u8 - 1);
-        // println!(
-        //     "{}",
-        //     (self.ptrbitarr >> ((Stride4::BITS >> 1) - nibble as u8 - 1) as usize).count_ones()
-        // );
-        // // println!("{}", next_index);
-        // println!("{:?}", self.ptr_vec);
-
-        // &mut self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)],
-        // println!("existing node.");
-        // println!("{:?}", self.ptr_vec);
-        // println!("ptrbitarr: {:?}", self.ptrbitarr);
-        // println!("nib: {:?}", nibble);
-        // println!("index: {:?}", S::get_ptr_index(self.ptrbitarr, nibble));
-        // println!("{:#?}", self);
         NewNodeOrIndex::ExistingNode(self.ptr_vec[S::get_ptr_index(self.ptrbitarr, nibble)].1)
     }
 
@@ -1006,48 +791,14 @@ where
 
         for n_l in 1..(nibble_len + 1) {
             // Move the bit in the right position.
-
-            // nibble = (search_pfx.net << (stride_end - stride) as usize)
-            //     >> (((Self::BITS - n_l) % AF::BITS) as usize);
             nibble = AddressFamily::get_nibble(search_pfx.net, start_bit, n_l);
-
-            // offset = (1_u32 << n_l) - 1; // 15 for a full stride of 4
-            // bit_pos = 0x1 << (Self::BITS - offset as u8 - nibble as u8 - 1);
             bit_pos = S::get_bit_pos(nibble, n_l);
-
-            // Check if the prefix has been set, if so select the prefix. This is not
-            // necessarily the final prefix that will be returned.
-            // println!(
-            //     "idxpfx:      {:32b} {:32b}",
-            //     current_node.pfxbitarr >> (Self::BITS - offset as u8 - nibble as u8 - 1),
-            //     nibble
-            // );
-            // println!("bit_pos:     {:032b}", bit_pos);
-            // println!("___pfx:      {:032b}", self.pfxbitarr);
-            // println!(
-            //     "___ptr:      xxxxxxxxxxxxxxx{:016b}x",
-            //     current_node.ptrbitarr
-            // );
-            // println!("{:?}", current_node.pfx_vec);
 
             // Check it there's an prefix matching in this bitmap for this nibble
             if self.pfxbitarr & bit_pos > S::zero() {
                 found_pfx.push(self.pfx_vec[S::get_pfx_index(self.pfxbitarr, nibble, n_l)]);
-                // println!("vec: {:?}", self.pfx_vec);
-                // println!("found: {:?}", found_pfx);
             }
         }
-
-        // If we are at the end of the prefix length or if there are no more
-        // children we're returning what we found so far.
-        // println!("{:#?}", current_node.ptr_vec);
-
-        // println!(
-        //     "idxptr:      {:32b}",
-        //     // current_node.ptrbitarr >> ((Self::BITS - offset as u8 - nibble as u8 - 1) as usize)
-        //     current_node.ptrbitarr
-        //         >> (AF::BITS - nibble as u8 - 1) as usize
-        // );
 
         // Check if this the last stride, or if they're no more children to go to,
         // if so return what we found up until now.
@@ -1068,8 +819,6 @@ where
         mut nibble: u32,
         nibble_len: u8,
         start_bit: u8,
-        // found_pfx: &'b mut Vec<&'a Prefix<AF, T>>,
-        // found_pfx: &'b mut Vec<(AF, u32)>,
     ) -> (Option<u32>, Option<(AF, u32)>) {
         let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
         let mut found_pfx = None;
@@ -1120,13 +869,6 @@ where
     T: Debug,
     AF: AddressFamily + Debug,
 {
-    // pub const STRIDES: [u8; 6] = [3, 4, 4, 6, 7, 8]; // 89ns
-    // pub const STRIDES: [u8; 6] = [4, 4, 6, 6, 6, 6]; // 86ns
-    // pub const STRIDES: [u8; 7] = [7, 5, 5, 5, 3, 4, 3]; // 101ns
-    // pub const STRIDES: [u8; 4] = [8; 4]; // 165ns
-    // pub const STRIDES: [u8; 8] = [4; 8]; // 77ns
-    // pub const STRIDES: [u8; 6] = [6, 6, 6, 6, 4, 4]; // 98ns
-
     pub fn new(_strides_vec: Vec<u8>) -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
         let mut strides = vec![];
@@ -1154,7 +896,6 @@ where
         match strides[0] {
             3 => {
                 node = SizedStrideNode::Stride3(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1164,7 +905,6 @@ where
             }
             4 => {
                 node = SizedStrideNode::Stride4(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1174,7 +914,6 @@ where
             }
             5 => {
                 node = SizedStrideNode::Stride5(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1184,7 +923,6 @@ where
             }
             6 => {
                 node = SizedStrideNode::Stride6(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: 0,
                     ptr_vec: vec![],
@@ -1194,7 +932,6 @@ where
             }
             7 => {
                 node = SizedStrideNode::Stride7(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: 0,
                     pfxbitarr: U256(0, 0),
                     ptr_vec: vec![],
@@ -1204,7 +941,6 @@ where
             }
             8 => {
                 node = SizedStrideNode::Stride8(TreeBitMapNode {
-                    bit_id: 0,
                     ptrbitarr: U256(0, 0),
                     pfxbitarr: U512(0, 0, 0, 0),
                     ptr_vec: vec![],
@@ -1218,7 +954,6 @@ where
         };
 
         TreeBitMap {
-            // strides: Self::STRIDES.iter().map(|s| *s).collect(),
             strides,
             stats: stride_stats,
             nodes: vec![node],
@@ -1258,18 +993,11 @@ where
     // startpos (2 ^ nibble length) - 1 + nibble as usize
 
     pub fn insert(&mut self, pfx: Prefix<AF, T>) {
-        // println!("");
-        // println!("{:?}", pfx);
-        // println!("             0   4   8   12  16  20  24  28  32  36  40  44  48  52  56  60  64  68  72  76  80  84  88  92  96 100 104 108 112 116 120 124 128");
-        // println!("             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
-
         let mut stride_end: u8 = 0;
         let mut cur_i = 0;
         let mut node = std::mem::take(self.retrieve_node_mut(cur_i).unwrap());
 
         let mut level: u8 = 0;
-        // let ss = self.strides.clone();
-        // let mut strides = ss.iter().peekable();
         let pfx_len = pfx.len.clone();
         let pfx_net = pfx.net.clone();
 
@@ -1314,13 +1042,9 @@ where
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride3(current_node),
                         );
-                        // (None, SizedStrideNode::Stride3(current_node))
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
-                        // println!("existing {:?}", pfx);
-
                         (None, SizedStrideNode::Stride3(current_node))
                     }
                 },
@@ -1361,9 +1085,6 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
-                        // println!("existing {:?}", pfx);
-
                         (None, SizedStrideNode::Stride4(current_node))
                     }
                 },
@@ -1398,9 +1119,6 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
-                        // println!("existing {:?}", pfx);
-
                         (None, SizedStrideNode::Stride5(current_node))
                     }
                 },
@@ -1435,9 +1153,6 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
-                        // println!("existing {:?}", pfx);
-
                         (None, SizedStrideNode::Stride6(current_node))
                     }
                 },
@@ -1472,8 +1187,6 @@ where
                         return;
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // println!("existing {:?}", pfx);
-                        // print!(". {:?}", pfx);
                         (None, SizedStrideNode::Stride7(current_node))
                     }
                 },
@@ -1496,9 +1209,6 @@ where
                         (Some(i), SizedStrideNode::Stride8(current_node))
                     }
                     NewNodeOrIndex::ExistingPrefix => {
-                        // print!(". {:?}", pfx);
-                        // println!("existing {:?}", pfx);
-
                         (None, SizedStrideNode::Stride8(current_node))
                     }
                     NewNodeOrIndex::NewPrefix => {
@@ -1564,16 +1274,10 @@ where
     pub fn match_longest_prefix(
         &'a self,
         search_pfx: &Prefix<AF, NoMeta>,
-        // mut found_pfx: Vec<&'a Prefix<AF, T>>,
     ) -> Vec<&'a Prefix<AF, T>> {
         let mut stride_end = 0;
-        // let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
         let mut found_pfx_idxs: Vec<(AF, u32)> = vec![];
         let mut node = self.retrieve_node(0).unwrap();
-        // println!("");
-        // println!("{:?}", search_pfx);
-        // println!("             0   4   8   12  16  20  24  28  32");
-        // println!("             |---|---|---|---|---|---|---|---|");
 
         for stride in self.strides.iter() {
             stride_end += stride;
@@ -1586,8 +1290,6 @@ where
 
             // Shift left and right to set the bits to zero that are not
             // in the nibble we're handling here.
-            // let mut nibble = (search_pfx.net << (stride_end - stride) as usize)
-            //     >> (((Self::BITS - nibble_len) % Self::BITS) as usize);
             let nibble = AddressFamily::get_nibble(search_pfx.net, stride_end - stride, nibble_len);
 
             // let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
@@ -1725,7 +1427,6 @@ where
             };
         }
 
-        println!("=");
         found_pfx_idxs
             .iter()
             .map(|i| self.retrieve_prefix(i.1).unwrap())
@@ -1737,14 +1438,9 @@ where
         search_pfx: &Prefix<AF, NoMeta>,
     ) -> Option<&'a Prefix<AF, T>> {
         let mut stride_end = 0;
-        // let mut found_pfx: Vec<&'a Prefix<AF, T>> = vec![];
         let mut found_pfx_idx: Option<u32> = None;
         let mut node = self.retrieve_node(0).unwrap();
-        // println!("");
-        // println!("{:?}", search_pfx);
-        // println!("             0   4   8   12  16  20  24  28  32");
-        // println!("             |---|---|---|---|---|---|---|---|");
-
+  
         for stride in self.strides.iter() {
             stride_end += stride;
 
@@ -1756,8 +1452,6 @@ where
 
             // Shift left and right to set the bits to zero that are not
             // in the nibble we're handling here.
-            // let mut nibble = (search_pfx.net << (stride_end - stride) as usize)
-            //     >> (((Self::BITS - nibble_len) % Self::BITS) as usize);
             let nibble = AddressFamily::get_nibble(search_pfx.net, stride_end - stride, nibble_len);
 
             // let mut bit_pos = S::get_bit_pos(nibble, nibble_len);
@@ -1777,7 +1471,6 @@ where
             // nibble              * 0 1 00 01 10 11 000 001 010 011 100 101 110 111 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111    x
             // nibble len offset   0 1    2            3                                4
             match node {
-                // nibble, nibble_len, pfx,
                 SizedStrideNode::Stride3(current_node) => {
                     match current_node.search_stride_at_lmp_only(
                         search_pfx,

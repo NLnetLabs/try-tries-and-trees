@@ -279,13 +279,6 @@ where
 
         let mut next_pos = search_pfx.net << cursor.unwrap().bit_pos as usize;
         loop {
-            // println!("pfx {:?}", search_pfx);
-            // println!("{:?}", cursor.unwrap().bit_id);
-            // println!("{}", (AF::BITS - cursor.unwrap().bit_pos) as usize);
-            // The modulo (%) is to prevent the Shift left argument to become equal
-            // (or greater) than AF::BITS.
-            // AF::BITS << AF::BITS does not equal 0, but will overflow.
-
             let bit_id_match = (search_pfx.net
                 ^ (cursor.unwrap().bit_id
                     << ((AF::BITS - cursor.unwrap().bit_pos) % AF::BITS) as usize))
@@ -300,7 +293,6 @@ where
                             c.left.as_deref()
                         })
                         .and_then(|c| Some(c));
-                    // println!("{:?}", match_pfx);
                 }
                 _ if bit_id_match => {
                     cursor = cursor
@@ -309,7 +301,6 @@ where
                             c.right.as_deref()
                         })
                         .and_then(|c| Some(c));
-                    // println!("{:?}", match_pfx);
                 }
                 _ => {
                     break;

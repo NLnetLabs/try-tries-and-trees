@@ -97,7 +97,6 @@ impl BitOr for IPv4 {
     }
 }
 
-// #[derive(Debug)]
 pub struct Prefix<AF, T>
 where
     T: Meta<AF>,
@@ -245,7 +244,6 @@ where
         let mut level: usize = 0;
 
         for _ in 0..pfx.len {
-            // println!("{:#b} : {}", first_bit, first_bit.leading_ones());
             match first_bit & AF::BITMASK {
                 b if b == zero => {
                     if !cursor.left.is_some() {
@@ -271,18 +269,11 @@ where
             first_bit = first_bit << num::one();
             level += 1;
         }
-        // println!("bp: {:b}", built_prefix);
-
-        // let len = pfx.len;
-        // let shift: usize = (AF::BITS - pfx.len) as usize;
-        // let net = built_prefix << if shift < AF::BITS as usize { shift } else { 0 };
 
         if cursor.prefix.is_none() {
             self.1[level].prefixes_num += 1;
         }
-        // println!("{:b}", net);
         cursor.prefix = Some(&pfx);
-        // println!("inserted prefix: {:?}/{}", AF::fmt_net(net), len);
     }
 
     pub fn match_longest_prefix(
@@ -292,23 +283,14 @@ where
         let mut cursor = &self.0;
         let mut cursor_pfx: AF = num::zero();
         let mut match_pfx: Option<&'a Prefix<AF, T>> = None;
-        // let mut build_pfx = num::zero();
-        // let mut match_len = 0;
+
         let zero: AF = num::zero();
         let mut first_bit = search_pfx.net;
 
         for _ in 0..(search_pfx.len + 1) {
             if let Some(found_pfx) = cursor.prefix {
                 match_pfx = Some(found_pfx);
-                // build_pfx = cursor_pfx;
-                // match_len = i;
-                // let shift = if i > 0 { (AF::BITS - i) as usize } else { 0 };
-                // println!(
-                //     "less-specific: {}/{} with {:?}",
-                //     AF::fmt_net(cursor_pfx << shift).as_str(),
-                //     match_len,
-                //     found_pfx.meta
-                // );
+
             }
 
             match first_bit & AF::BITMASK {
@@ -332,11 +314,6 @@ where
             first_bit = first_bit << 1;
         }
 
-        // if match_len > 0 {
-            // let build_pfx_net = AF::fmt_net(build_pfx << (AF::BITS - match_len) as usize);
-        //     println!("built prefix: {}/{}", build_pfx_net.as_str(), match_len);
-        // }
-        // println!("{:?}", match_pfx);
         match_pfx
     }
 
