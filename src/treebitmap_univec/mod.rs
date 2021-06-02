@@ -867,7 +867,7 @@ where
 impl<'a, AF, T> TreeBitMap<AF, T>
 where
     T: Debug,
-    AF: AddressFamily + Debug,
+    AF: AddressFamily + Debug + From::<u32>,
 {
     pub fn new(_strides_vec: Vec<u8>) -> TreeBitMap<AF, T> {
         // Check if the strides division makes sense
@@ -1036,7 +1036,7 @@ where
                         self.stats[0].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
@@ -1076,7 +1076,7 @@ where
                         self.stats[1].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
@@ -1110,7 +1110,7 @@ where
                         self.stats[2].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
@@ -1144,7 +1144,7 @@ where
                         self.stats[3].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort_unstable();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
@@ -1178,7 +1178,7 @@ where
                         self.stats[4].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort();
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
@@ -1216,8 +1216,9 @@ where
                         self.stats[5].inc_prefix_count(level);
                         current_node
                             .pfx_vec
-                            .push(((pfx_net >> (AF::BITS - pfx_len) as usize), i));
+                            .push((((1 << nibble_len) + nibble).into(), i));
                         current_node.pfx_vec.sort();
+                        println!("pfx_vec {:?}", current_node.pfx_vec);
                         let _default_val = std::mem::replace(
                             self.retrieve_node_mut(cur_i).unwrap(),
                             SizedStrideNode::Stride8(current_node),
